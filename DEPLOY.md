@@ -109,3 +109,19 @@ Two honest limits: images sit inside `vault.json` as base64, so the file and eve
 grow fast once real art goes in; and there's no sign-in, so whoever holds the token holds
 everything. Both are solved by the Cloudflare Pages + Worker + R2 step — images in object
 storage, real per-tenant accounts — whenever you're ready.
+
+## Deletions
+
+A deletion is recorded as a fact ("this id died at this time"), not just an absence, and
+that record syncs like everything else. So deleting a spark on any device deletes it
+everywhere at the next sync, and a device that still has the old copy cannot push it back.
+
+- Deleting a note also removes it from any sequence timeline and drops its links.
+- If one of you deletes something and the other *edits* it afterwards, the edit wins and
+  the item survives — losing work is worse than an unwanted note.
+- Deletion records are forgotten after 180 days to keep the file small; long past the
+  point where every device has synced.
+
+**One-time catch:** anything you deleted *before* this update has no such record, so it
+may come back once from the copy on GitHub. Delete it a second time — after that it stays
+gone. Do this after every device has loaded the updated app.

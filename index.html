@@ -261,7 +261,11 @@ function load(){
   }catch(e){ console.error('load failed',e); }
   freshVault=true; return blank();
 }
-function blank(){ return {notes:[],sequences:[],links:[],warps:[],view:'inbox',openSeq:null,openWarp:null,filters:{q:'',world:'',kind:'',tag:''}}; }
+function blank(){ return {notes:[],sequences:[],links:[],warps:[],deleted:{},view:'inbox',openSeq:null,openWarp:null,filters:{q:'',world:'',kind:'',tag:''}}; }
+// A deletion has to be a fact that travels, not just an absence — otherwise the other
+// device still has the item and the merge hands it straight back. tomb() records when
+// something died; the merge then drops it everywhere.
+function tomb(id){ if(!state.deleted) state.deleted={}; state.deleted[id]=Date.now(); }
 let serverMode=false, cloudMode=false, pushTimer=null, suppressSync=false;
 function save(){
   try{ localStorage.setItem(KEY, JSON.stringify(state)); }
@@ -558,7 +562,7 @@ function updBeat(sid,i,v){ const s=seqById(sid); if(s&&s.beats[i]){ s.beats[i].t
 function moveBeat(sid,i,d){ const s=seqById(sid); const j=i+d; if(!s||j<0||j>=s.beats.length) return; [s.beats[i],s.beats[j]]=[s.beats[j],s.beats[i]]; s.updatedAt=Date.now(); render(); }
 function rmBeat(sid,i){ const s=seqById(sid); if(s){ s.beats.splice(i,1); s.updatedAt=Date.now(); render(); } }
 function delSeq(id){ if(!confirm('Delete this sequence? (Notes stay in the library.)')) return;
-  state.sequences=state.sequences.filter(s=>s.id!==id); state.openSeq=null; render(); }
+  tomb(id); state.sequences=state.sequences.filter(s=>s.id!==id); state.openSeq=null; render(); }
 
 /* drag reorder beats */
 let dragIdx=null;
@@ -688,7 +692,7 @@ function rmWarpRef(id,i){ const w=warpById(id); if(w){ w.refs.splice(i,1); w.upd
 function delWarp(id){
   const w=warpById(id); if(!w) return;
   if(!confirm(`Remove the ${WARP} "${w.title||w.tag}"?\n\nThe tag and all its notes stay — only this hub page and its pinned links go.`)) return;
-  state.warps=state.warps.filter(x=>x.id!==id); state.openWarp=null; render();
+  tomb(id); state.warps=state.warps.filter(x=>x.id!==id); state.openWarp=null; render();
 }
 
 /* ---- note modal ---- */
@@ -754,8 +758,9 @@ function saveNote(id){
 }
 function delNote(id){
   if(!confirm('Delete this note everywhere (library, sequences, links)?')) return;
+  tomb(id);
   state.notes=state.notes.filter(n=>n.id!==id);
-  state.sequences.forEach(s=>s.beats=s.beats.filter(b=>b.noteId!==id));
+  state.sequences.forEach(s=>{ const b0=s.beats.length; s.beats=s.beats.filter(b=>b.noteId!==id); if(s.beats.length!==b0) s.updatedAt=Date.now(); });
   state.links=state.links.filter(l=>l.from!==id&&l.to!==id);
   closeModal(); render();
 }
@@ -967,6 +972,8 @@ async function pushToServer(){
 function mergeVaults(local,remote){
   const out=blank();
   out.view=local.view; out.filters=local.filters; out.openSeq=local.openSeq; out.openWarp=local.openWarp;
+  out.deleted=Object.assign({},remote.deleted||{});
+  Object.entries(local.deleted||{}).forEach(([k,t])=>{ if(!out.deleted[k]||t>out.deleted[k]) out.deleted[k]=t; });
   const wm=new Map();
   (remote.warps||[]).forEach(w=>wm.set(norm(w.tag),w));
   (local.warps||[]).forEach(w=>{ const k=norm(w.tag), ex=wm.get(k); if(!ex||(w.updatedAt||0)>=(ex.updatedAt||0)) wm.set(k,w); });
@@ -984,7 +991,25 @@ function mergeVaults(local,remote){
     const k=[l.from,l.to].sort().join('|');
     if(seen.has(k)) return false; seen.add(k); return true;
   });
-  return dedupeByText(out);
+  return applyTombstones(dedupeByText(out));
+}
+// Anything whose tombstone is newer than its last edit is gone for good — on every
+// device, at the next sync. An edit made *after* the deletion wins instead, so
+// "I deleted it, then you kept working on it" keeps the work.
+function applyTombstones(v){
+  const d=v.deleted||{};
+  const dead=o=>d[o.id]!==undefined && d[o.id]>=(o.updatedAt||0);
+  v.notes=(v.notes||[]).filter(n=>!dead(n));
+  v.sequences=(v.sequences||[]).filter(s=>!dead(s));
+  v.warps=(v.warps||[]).filter(w=>!dead(w));
+  const alive=new Set(v.notes.map(n=>n.id));
+  v.sequences.forEach(s=>{ s.beats=(s.beats||[]).filter(b=>alive.has(b.noteId)); });
+  v.links=(v.links||[]).filter(l=>alive.has(l.from)&&alive.has(l.to));
+  // forget very old tombstones so the vault does not grow forever; by then every
+  // device has long since synced the deletion
+  const cutoff=Date.now()-180*24*3600*1000;
+  Object.keys(d).forEach(k=>{ if(d[k]<cutoff) delete d[k]; });
+  return v;
 }
 // Two devices can hold the same note under different ids (e.g. both got the demo
 // seed, or the same file was imported twice). Collapse exact-text duplicates and
