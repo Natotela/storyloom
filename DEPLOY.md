@@ -1,100 +1,111 @@
-# Putting Storyloom online (GitHub Pages)
+# Storyloom — online setup
 
-The result: a URL you both open from any device — laptop, partner's laptop, phones —
-with the vault living in GitHub, not on IC's machine. Nothing has to be running at home.
+**App:** https://natotela.github.io/storyloom/ ✅ live
+**Vault:** a separate **private** repo, written by the app over the GitHub API.
 
-**Two repos, on purpose:**
+Two repos on purpose: Pages only serves free sites from *public* repos, and your canon
+has no business being public. The public repo holds only the app — `vault.json` is
+gitignored, verified absent from the published site.
 
-| repo | visibility | holds | why |
-|---|---|---|---|
-| `storyloom` | **public** | `index.html` | GitHub Pages only serves free sites from public repos |
-| `storyloom-vault` | **private** | `vault.json` | your canon — no reason for it to be readable by strangers |
-
-The app being public is harmless: it's an empty shell without a token. Every browser you
-use enters the token once, and it stays in that browser's local storage — never in the
-page, the vault file, or an export. (Verified: the token cannot reach the published file.)
+The app being public is harmless: without a token it's an empty shell. The token lives
+in each browser's local storage — never in the page, the vault file, or an export.
 
 ---
 
-## Step 1 — the app repo (public)
+## Step 1 — app repo (public) ✅ done
 
-This folder is **already a git repo with the first commit made**, and `vault.json` is
-gitignored so your canon can never leak into the public repo. You only need to push it.
+Live at https://natotela.github.io/storyloom/
 
-1. On github.com: **New repository** → name `storyloom` → **Public** →
-   **do not** add a README or .gitignore (keep it empty) → Create.
-2. In a terminal in this folder, replacing `<your-username>`:
+## Step 2 — vault repo (private) — do this once
 
-   ```
-   git remote add origin https://github.com/<your-username>/storyloom.git
-   git push -u origin main
-   ```
+github.com → **New repository** → name `storyloom-vault` → **Private** →
+tick **Add a README** → Create.
 
-   A browser window opens for GitHub sign-in the first time; after that it's remembered.
-3. Repo → **Settings** → **Pages** → Source: *Deploy from a branch*, Branch: `main`, folder `/ (root)` → Save.
-4. Wait ~1 minute. Your site is at **`https://<your-username>.github.io/storyloom/`**
+(The README just forces the `main` branch into existence so the app has somewhere to write.)
 
-*No terminal?* On the empty repo page click **uploading an existing file** and drag in
-`index.html`, then do step 3. That's enough to serve the app — the other files are
-convenience, not requirements.
+## Step 3 — the token — do this once
 
-## Step 2 — the vault repo (private)
-
-1. **New repository** → name `storyloom-vault` → **Private** → tick *Add a README* → Create.
-   (The README just ensures the `main` branch exists.)
-
-## Step 3 — the token
-
-1. github.com → your avatar → **Settings** → **Developer settings**
-   → **Personal access tokens** → **Fine-grained tokens** → **Generate new token**.
-2. Name it `storyloom`, expiry as you like (you'll re-enter it when it lapses).
-3. **Repository access** → *Only select repositories* → pick **`storyloom-vault`** only.
+1. github.com → avatar → **Settings** → **Developer settings**
+   → **Personal access tokens** → **Fine-grained tokens** → **Generate new token**
+2. Name `storyloom`. Expiry: 1 year (you'll re-enter it when it lapses).
+3. **Repository access** → *Only select repositories* → **`storyloom-vault`** only.
 4. **Permissions** → Repository permissions → **Contents** → **Read and write**.
-5. Generate, then copy the `github_pat_…` string — GitHub shows it once.
+   (Leave everything else alone. This token can touch nothing but the vault.)
+5. Generate and copy the `github_pat_…` string — GitHub shows it exactly once.
 
-## Step 4 — connect
+**Put it somewhere you both can reach it**: a shared password manager entry, or a note
+in an end-to-end encrypted chat. You need it on every device. Don't email it.
 
-1. Open your Pages URL, click **⇅ Sync**.
-2. Repository: `<your-username>/storyloom-vault` · branch `main` · path `vault.json`
-3. Paste the token → **⟳ Connect**.
-4. The header badge turns **☁ synced ✓**. Done — the vault now lives on GitHub.
+One token shared between the two of you is fine — it's scoped to a single private repo.
 
-Repeat step 4 (only step 4) in every browser and on every phone you want to use.
+## Step 4 — connect each device
 
-## Step 5 — move your existing vault up
+On **every** machine, phone, and tablet, once each:
 
-Do this once, from the machine that has your real notes (the one running `server.js`):
-open the local app, **Export**, then on the Pages site **Import** that file. It pushes
-to GitHub within a couple of seconds. After that, use the Pages URL as home.
+1. Open https://natotela.github.io/storyloom/
+2. **⇅ Sync**
+3. Repository `Natotela/storyloom-vault` · branch `main` · path `vault.json`
+4. Paste the token → **⟳ Connect**
+5. Badge turns **☁ synced ✓**
+
+That's the whole per-device ritual. Nothing to install.
+
+## Step 5 — move your real vault up (once, from IC's laptop)
+
+Your existing notes are in `vault.json` on IC's laptop, not yet on GitHub.
+
+1. On IC's laptop run `node storyloom/server.js`, open http://localhost:4173
+2. **Export** → saves a `.json` file
+3. Open the Pages site (already connected per step 4) → **Import** that file
+4. Badge goes `☁ saving…` → `☁ synced ✓`
+
+Everything is now on GitHub. From here on the Pages URL is home on every device;
+`server.js` becomes optional.
 
 ---
+
+## iPhone / iPad
+
+Do step 4 in **Safari**, then **Share → Add to Home Screen**. You get the ✦ icon and a
+full-screen app with no browser chrome — good for capturing a spark in three seconds.
+
+Two iOS notes worth knowing:
+
+- **Use the home-screen icon, not a Safari tab.** Safari clears storage for sites you
+  haven't visited in ~7 days; installed home-screen apps are treated as in-use. If it
+  ever does forget, nothing is lost — the vault is on GitHub. You just re-paste the token.
+- **Pasting the token**: keep it in your password manager and paste from there. Typing
+  a `github_pat_…` string on a phone keyboard is misery.
+
+Each iOS device needs the token entered separately — Safari and the home-screen app
+share storage on modern iOS, so doing it once per device is enough.
 
 ## How syncing behaves
 
-- **Auto-save**: ~2.5s after you stop editing. Badge shows `☁ unsaved…` → `☁ saving…` → `☁ synced ✓`.
-- **Auto-pull**: on page focus and every 45s while the tab is visible, so your partner's
-  work appears without you doing anything.
-- **Simultaneous edits are safe**: every push re-reads GitHub first and merges, keeping
-  the newest version of each note. Tested with both sides editing at once — nothing is lost.
-- **Version history for free**: every save is a commit. `storyloom-vault` → *History*
-  lets you see or restore the canon as of any past moment.
-- **Offline**: edits keep working against the browser copy; the badge shows it isn't
-  saved, and it retries. Don't close the tab on a red badge — you'll get a warning if you try.
+- **Auto-save** ~2.5s after you stop editing: `☁ unsaved…` → `☁ saving…` → `☁ synced ✓`
+- **Auto-pull** on focus and every 45s while visible — your partner's work just appears.
+- **Simultaneous edits are safe**: every push re-reads GitHub and merges, newest version
+  of each note winning. Tested with both sides editing at once; nothing was lost.
+- **Version history free**: every save is a commit. `storyloom-vault` → *History* lets you
+  read or restore the canon as of any past moment.
+- **Offline**: keeps working against the browser copy and retries. Don't close the tab on
+  a red badge — you'll get a warning if you try.
+- **Your view isn't shared**: open tab, filters, and theme stay per-device on purpose.
 
-## Updating the app later
+## Updating the app
 
-From this folder, once the remote is set:
+From the `storyloom` folder:
 
 ```bash
 git add -A && git commit -m "update storyloom" && git push
 ```
 
-Pages redeploys in about a minute. Everyone's vault is untouched — the app and the data
-live in different repos on purpose, so shipping app changes can never endanger the canon.
+Pages redeploys in ~1 minute. Vaults untouched — app and data live in different repos so
+shipping app changes can never endanger the canon.
 
 ## When you outgrow this
 
-Two honest limits: images live inside `vault.json` as base64, so the file (and every
-commit) grows fast once you add art; and there's no sign-in, so anyone with the token has
+Two honest limits: images sit inside `vault.json` as base64, so the file and every commit
+grow fast once real art goes in; and there's no sign-in, so whoever holds the token holds
 everything. Both are solved by the Cloudflare Pages + Worker + R2 step — images in object
-storage, real accounts — whenever you're ready.
+storage, real per-tenant accounts — whenever you're ready.
