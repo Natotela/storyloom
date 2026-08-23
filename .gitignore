@@ -1,0 +1,7 @@
+# The vault is your canon and this repo is PUBLIC (GitHub Pages requires it).
+# Never commit it here — it belongs in the separate private storyloom-vault repo,
+# written there by the app's Sync. See DEPLOY.md.
+vault.json
+vault.backup.json
+vault.json.tmp
+*.local.json

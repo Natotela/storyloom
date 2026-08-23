@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Storyloom</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✦</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#12111a; --bg2:#191826; --panel:#201f30; --panel2:#282740;
+    --ink:#eceaf6; --ink-dim:#9b97b8; --ink-faint:#6a668a;
+    --accent:#f0a35e; --accent2:#b48cf2; --accent3:#6fd3c7;
+    --danger:#e07070;
+    --line:#33314e; --radius:14px;
+    --chip-on-ink:#160f24; --count-ink:#1b1408;
+    --st-inbox:#f0a35e; --st-inbox-bg:rgba(240,163,94,.13);
+    --st-sorted:#b48cf2; --st-sorted-bg:rgba(180,140,242,.13);
+    --st-seq:#6fd3c7;    --st-seq-bg:rgba(111,211,199,.12);
+    --tag-ink:#6fd3c7; --tag-bg:#1d3230; --world-ink:#f0a35e; --world-bg:#3a2a17;
+    --k-spark-bg:#4a3520;--k-spark-ink:#f2b571; --k-dialogue-bg:#2c4139;--k-dialogue-ink:#8fe0c9;
+    --k-scene-bg:#3c2c4e;--k-scene-ink:#c9a6f5; --k-character-bg:#452831;--k-character-ink:#f0a0b8;
+    --k-place-bg:#233c4c;--k-place-ink:#84c5ec; --k-idea-bg:#414024;--k-idea-ink:#e3df84;
+    --k-ref-bg:#333346;--k-ref-ink:#a9a9cf;
+    --hero-shade-a:rgba(14,12,24,.55); --hero-shade-b:rgba(14,12,24,.88);
+    --cover-shade:rgba(10,8,18,.85);
+    --font-ui:'Inter',system-ui,sans-serif; --font-display:'Fraunces',Georgia,serif;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#f2f1f7; --bg2:#ffffff; --panel:#ffffff; --panel2:#eae8f3;
+      --ink:#272338; --ink-dim:#5d5878; --ink-faint:#8c88a5;
+      --accent:#c1731f; --accent2:#7d55c7; --accent3:#1f8d80;
+      --danger:#c05252; --line:#d9d6e6;
+      --chip-on-ink:#ffffff; --count-ink:#ffffff;
+      --hero-shade-a:rgba(246,245,250,.62); --hero-shade-b:rgba(246,245,250,.92);
+      --cover-shade:rgba(246,245,250,.9);
+      --st-inbox:#a05c15; --st-inbox-bg:rgba(160,92,21,.10);
+      --st-sorted:#7d55c7; --st-sorted-bg:rgba(125,85,199,.10);
+      --st-seq:#17756a;    --st-seq-bg:rgba(23,117,106,.10);
+      --tag-ink:#17756a; --tag-bg:#dbefec; --world-ink:#8d5312; --world-bg:#f7e7d4;
+      --k-spark-bg:#fbeada;--k-spark-ink:#8a5312; --k-dialogue-bg:#d9f0e8;--k-dialogue-ink:#16665a;
+      --k-scene-bg:#ece0f8;--k-scene-ink:#65399f; --k-character-bg:#fadfe6;--k-character-ink:#9e3c59;
+      --k-place-bg:#d9ecf8;--k-place-ink:#1c5c80; --k-idea-bg:#f0eed0;--k-idea-ink:#66611a;
+      --k-ref-bg:#e6e6f0;--k-ref-ink:#4b4b70;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#f2f1f7; --bg2:#ffffff; --panel:#ffffff; --panel2:#eae8f3;
+    --ink:#272338; --ink-dim:#5d5878; --ink-faint:#8c88a5;
+    --accent:#c1731f; --accent2:#7d55c7; --accent3:#1f8d80;
+    --danger:#c05252; --line:#d9d6e6;
+    --chip-on-ink:#ffffff; --count-ink:#ffffff;
+    --hero-shade-a:rgba(246,245,250,.62); --hero-shade-b:rgba(246,245,250,.92);
+    --cover-shade:rgba(246,245,250,.9);
+    --st-inbox:#a05c15; --st-inbox-bg:rgba(160,92,21,.10);
+    --st-sorted:#7d55c7; --st-sorted-bg:rgba(125,85,199,.10);
+    --st-seq:#17756a;    --st-seq-bg:rgba(23,117,106,.10);
+    --tag-ink:#17756a; --tag-bg:#dbefec; --world-ink:#8d5312; --world-bg:#f7e7d4;
+    --k-spark-bg:#fbeada;--k-spark-ink:#8a5312; --k-dialogue-bg:#d9f0e8;--k-dialogue-ink:#16665a;
+    --k-scene-bg:#ece0f8;--k-scene-ink:#65399f; --k-character-bg:#fadfe6;--k-character-ink:#9e3c59;
+    --k-place-bg:#d9ecf8;--k-place-ink:#1c5c80; --k-idea-bg:#f0eed0;--k-idea-ink:#66611a;
+    --k-ref-bg:#e6e6f0;--k-ref-ink:#4b4b70;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:15px;line-height:1.5}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  input,textarea,select{font-family:inherit;font-size:inherit;color:var(--ink);background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;outline:none}
+  input:focus,textarea:focus,select:focus{border-color:var(--accent2)}
+  ::placeholder{color:var(--ink-faint)}
+
+  header{display:flex;align-items:center;gap:18px;padding:14px 22px;border-bottom:1px solid var(--line);background:var(--bg2);position:sticky;top:0;z-index:50}
+  .logo{font-family:var(--font-display);font-size:22px;font-weight:700;letter-spacing:.5px;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent;white-space:nowrap}
+  nav{display:flex;gap:4px;flex:1}
+  nav button{padding:8px 14px;border-radius:9px;color:var(--ink-dim);font-weight:500;font-size:14px}
+  nav button:hover{background:var(--panel)}
+  nav button.active{background:var(--panel2);color:var(--ink)}
+  nav button .count{font-size:11px;background:var(--accent);color:var(--count-ink);border-radius:10px;padding:1px 7px;margin-left:6px;font-weight:600}
+  .hdr-actions{display:flex;gap:8px}
+  .btn{padding:8px 14px;border-radius:9px;font-weight:500;font-size:14px;background:var(--panel);border:1px solid var(--line)}
+  .btn:hover{background:var(--panel2)}
+  .btn.primary{background:linear-gradient(90deg,#e2903f,#c98936);color:#221503;border:none;font-weight:600}
+  .btn.primary:hover{filter:brightness(1.1)}
+  .btn.ghost{border:none;background:none;color:var(--ink-dim)}
+  .btn.ghost:hover{color:var(--ink)}
+  .btn.danger{color:var(--danger);border-color:#5a3040}
+
+  main{max-width:1100px;margin:0 auto;padding:26px 22px 90px}
+
+  /* capture */
+  .capture{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:26px}
+  .capture textarea{width:100%;min-height:74px;resize:vertical;background:var(--bg2);font-size:16px}
+  .capture-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center}
+  .capture-row input,.capture-row select{flex:1;min-width:120px}
+  .hint{font-size:12px;color:var(--ink-faint);margin-top:8px}
+
+  /* filter bar */
+  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;align-items:center}
+  .filters input[type=search]{flex:2;min-width:180px}
+  .filters select{min-width:130px}
+  .chip{display:inline-block;font-size:12px;padding:3px 10px;border-radius:20px;background:var(--panel2);color:var(--ink-dim);border:1px solid var(--line);cursor:pointer;user-select:none}
+  .chip{display:inline-flex;align-items:center;gap:2px;padding:3px 6px 3px 10px}
+  .chip.on{background:var(--accent2);color:var(--chip-on-ink);border-color:var(--accent2);font-weight:600}
+  .chip-star{font-size:12px;line-height:1;padding:2px 3px;border-radius:5px;color:var(--ink-faint);background:none;border:none;cursor:pointer}
+  .chip-star:hover{color:var(--accent)}
+  .chip-star.on{color:var(--accent)}
+  .chip.on .chip-star{color:var(--chip-on-ink)}
+
+  .warp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+  .warp-card{background:var(--panel);border:1.5px solid var(--line);border-left:5px solid var(--accent);
+    border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:transform .1s,box-shadow .15s}
+  .warp-card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.28)}
+  .warp-cover{height:104px;background-size:cover;background-position:center}
+  .warp-body{padding:14px 16px}
+  .warp-title{font-family:var(--font-display);font-size:20px;font-weight:600}
+  .warp-tag{font-size:12px;color:var(--accent);margin-top:2px}
+  .warp-desc{font-size:13.5px;color:var(--ink-dim);margin-top:8px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+  .warp-meta{font-size:12px;color:var(--ink-faint);margin-top:10px}
+
+  /* note cards */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+  .card{position:relative;overflow:hidden;background-color:var(--panel);
+    background-image:linear-gradient(var(--stbg,transparent),var(--stbg,transparent));
+    border:1.5px solid var(--st,var(--line));border-radius:var(--radius);
+    padding:19px 14px 14px;cursor:pointer;display:flex;flex-direction:column;gap:8px;
+    transition:transform .1s, box-shadow .15s}
+  .card::before{content:'';position:absolute;left:0;right:0;top:0;height:6px;background:var(--st,var(--line));z-index:2}
+  .card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.28)}
+  .card.st-inbox{--st:var(--st-inbox);--stbg:var(--st-inbox-bg)}
+  .card.st-sorted{--st:var(--st-sorted);--stbg:var(--st-sorted-bg)}
+  .card.st-seq{--st:var(--st-seq);--stbg:var(--st-seq-bg)}
+  .st-chip{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;
+    padding:3px 9px;border-radius:6px;background:var(--st);color:var(--chip-on-ink);white-space:nowrap}
+  .card-img{width:calc(100% + 28px);margin:-19px -14px 0;border-radius:0;max-height:150px;object-fit:cover}
+  .legend{display:flex;gap:10px;font-size:12.5px;color:var(--ink-dim);margin-bottom:14px;flex-wrap:wrap;align-items:center}
+  .legend span.lg{display:inline-flex;align-items:center;gap:7px;border:1.5px solid var(--st);
+    background-image:linear-gradient(var(--stbg),var(--stbg));border-radius:9px;padding:4px 11px 4px 4px}
+  .legend .lg-inbox{--st:var(--st-inbox);--stbg:var(--st-inbox-bg)}
+  .legend .lg-sorted{--st:var(--st-sorted);--stbg:var(--st-sorted-bg)}
+  .legend .lg-seq{--st:var(--st-seq);--stbg:var(--st-seq-bg)}
+  .ldot{width:16px;height:16px;border-radius:5px;display:inline-block;background:var(--st)}
+  .beat-img{display:block;max-width:180px;max-height:110px;border-radius:8px;margin:6px 0}
+  .cap-preview{display:inline-flex;align-items:center;gap:6px}
+  .cap-preview img{height:44px;border-radius:6px;display:block}
+  .card-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .kind{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;padding:2px 8px;border-radius:6px}
+  .kind-spark{background:var(--k-spark-bg);color:var(--k-spark-ink)}
+  .kind-dialogue{background:var(--k-dialogue-bg);color:var(--k-dialogue-ink)}
+  .kind-scene{background:var(--k-scene-bg);color:var(--k-scene-ink)}
+  .kind-character{background:var(--k-character-bg);color:var(--k-character-ink)}
+  .kind-place{background:var(--k-place-bg);color:var(--k-place-ink)}
+  .kind-idea{background:var(--k-idea-bg);color:var(--k-idea-ink)}
+  .kind-ref{background:var(--k-ref-bg);color:var(--k-ref-ink)}
+  .card-text{white-space:pre-wrap;overflow:hidden;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;font-size:14.5px}
+  .card-text.dlg{font-family:var(--font-display);font-style:italic}
+  .card-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--ink-faint);margin-top:auto}
+  .tag{font-size:11.5px;color:var(--tag-ink);background:var(--tag-bg);padding:2px 8px;border-radius:12px}
+  .world-pill{font-size:11.5px;color:var(--world-ink);background:var(--world-bg);padding:2px 8px;border-radius:12px}
+  .in-seq{font-size:11px;color:var(--accent2)}
+
+  /* sequences */
+  .seq-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+  .seq-card{border-radius:var(--radius);overflow:hidden;border:1px solid var(--line);cursor:pointer;background:var(--panel);transition:border-color .15s}
+  .seq-card:hover{border-color:var(--accent)}
+  .seq-cover{height:110px;background-size:cover;background-position:center;background-color:var(--panel2);display:flex;align-items:flex-end}
+  .seq-cover-shade{width:100%;padding:10px 14px;background:linear-gradient(transparent,var(--cover-shade))}
+  .seq-title{font-family:var(--font-display);font-size:19px;font-weight:600}
+  .seq-body{padding:10px 14px;color:var(--ink-dim);font-size:13.5px;display:flex;justify-content:space-between;gap:8px}
+
+  /* sequence detail */
+  .seq-hero{border-radius:var(--radius);overflow:hidden;border:1px solid var(--line);margin-bottom:20px;background-size:cover;background-position:center;background-color:var(--panel)}
+  .seq-hero-inner{background:linear-gradient(var(--hero-shade-a),var(--hero-shade-b));padding:24px}
+  .seq-hero input.title{font-family:var(--font-display);font-size:26px;font-weight:700;background:transparent;border:none;width:100%;padding:0}
+  .seq-hero textarea{width:100%;background:var(--panel2);margin-top:10px;min-height:44px;resize:vertical}
+  .seq-hero-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .seq-hero-row input{flex:1;min-width:200px;background:var(--panel2)}
+
+  .beats{position:relative;padding-left:34px}
+  .beats::before{content:'';position:absolute;left:11px;top:6px;bottom:6px;width:2px;background:linear-gradient(var(--accent),var(--accent2))}
+  .beat{position:relative;margin-bottom:14px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;display:flex;gap:12px;align-items:flex-start}
+  .beat::before{content:'';position:absolute;left:-29px;top:18px;width:12px;height:12px;border-radius:50%;background:var(--accent);border:2px solid var(--bg)}
+  .beat.dragover{border-color:var(--accent3)}
+  .beat-main{flex:1;min-width:0}
+  .beat-text{white-space:pre-wrap;font-size:14.5px;cursor:pointer}
+  .beat-text:hover{color:var(--accent3)}
+  .beat-time{width:130px}
+  .beat-time input{width:100%;font-size:12.5px;background:var(--bg2)}
+  .beat-ctl{display:flex;flex-direction:column;gap:2px}
+  .beat-ctl button{color:var(--ink-faint);font-size:13px;padding:1px 6px;border-radius:5px}
+  .beat-ctl button:hover{color:var(--ink);background:var(--panel2)}
+  .drag-handle{cursor:grab;color:var(--ink-faint);padding-top:2px;font-size:15px}
+
+  /* modal */
+  .overlay{position:fixed;inset:0;background:rgba(8,6,16,.72);display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;z-index:100;overflow:auto}
+  .modal{background:var(--bg2);border:1px solid var(--line);border-radius:16px;width:100%;max-width:640px;padding:22px}
+  .modal h3{font-family:var(--font-display);margin-bottom:14px;font-size:20px}
+  .frow{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+  .frow>*{flex:1;min-width:130px}
+  .flabel{font-size:12px;color:var(--ink-dim);margin-bottom:3px;display:block}
+  .modal textarea{width:100%;min-height:110px;resize:vertical;font-size:15px}
+  .modal-actions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
+  .links-list{margin-top:6px;display:flex;flex-direction:column;gap:6px}
+  .link-row{display:flex;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13.5px}
+  .link-row .lbl{color:var(--accent2);font-size:12px;white-space:nowrap}
+  .link-row .txt{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+  .link-row .txt:hover{color:var(--accent3)}
+  .refs-list a{color:var(--accent3);font-size:13px;word-break:break-all}
+
+  /* picker */
+  .picker{max-height:320px;overflow:auto;margin-top:10px;display:flex;flex-direction:column;gap:6px}
+  .pick-row{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:14px}
+  .pick-row:hover{border-color:var(--accent)}
+
+  .empty{color:var(--ink-faint);text-align:center;padding:50px 20px;font-size:15px}
+  .empty b{color:var(--ink-dim)}
+  .section-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+  .section-h h2{font-family:var(--font-display);font-size:22px;font-weight:600}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--accent2);padding:10px 20px;border-radius:10px;z-index:200;font-size:14px;opacity:0;transition:opacity .25s;pointer-events:none}
+  .toast.show{opacity:1}
+  @media (max-width:700px){ header{flex-wrap:wrap} nav{order:3;width:100%;overflow-x:auto} .beat{flex-wrap:wrap} .beat-time{width:100%} }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">✦ Storyloom</div>
+  <nav id="nav"></nav>
+  <div class="hdr-actions">
+    <span id="storeBadge" title="Where the vault is being saved" style="align-self:center;font-size:11.5px;color:var(--ink-faint);white-space:nowrap"></span>
+    <button class="btn ghost" id="themeBtn" onclick="cycleTheme()" style="font-size:17px;padding:6px 10px"></button>
+    <button class="btn ghost" onclick="exportData()" title="Download everything as JSON">Export</button>
+    <button class="btn ghost" onclick="document.getElementById('importFile').click()" title="Restore from a JSON export">Import</button>
+    <button class="btn ghost" onclick="document.getElementById('mdFiles').click()" title="Import markdown notes from Obsidian or Logseq">Import .md</button>
+    <button class="btn" onclick="openSync()" title="Push/pull the vault to a GitHub repo">⇅ Sync</button>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(this)">
+    <input type="file" id="mdFiles" accept=".md,.markdown,.txt" multiple style="display:none" onchange="importMd(this)">
+  </div>
+</header>
+<main id="main"></main>
+<datalist id="worldList"></datalist>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ============ store ============ */
+const KEY='storyloom.v1';
+let freshVault=false;
+let state = load();
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(raw){ const s = JSON.parse(raw); return Object.assign(blank(), s); }
+  }catch(e){ console.error('load failed',e); }
+  freshVault=true; return blank();
+}
+function blank(){ return {notes:[],sequences:[],links:[],warps:[],view:'inbox',openSeq:null,openWarp:null,filters:{q:'',world:'',kind:'',tag:''}}; }
+let serverMode=false, cloudMode=false, pushTimer=null, suppressSync=false;
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(state)); }
+  catch(e){ // browser quota hit (images) — the disk/cloud vault is the real store
+    if(!serverMode&&!cloudMode) toast('⚠ Browser storage is full — set up Sync or Export now');
+  }
+  if(suppressSync) return;
+  if(serverMode){ clearTimeout(pushTimer); pushTimer=setTimeout(pushToServer,700); }
+  else if(cloudMode){ clearTimeout(pushTimer); pushTimer=setTimeout(cloudPush,2500); setBadge('☁ unsaved…'); }
+}
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+const KINDS=['spark','dialogue','scene','character','place','idea','ref'];
+
+function seed(){
+  const s = blank();
+  const mk=(text,kind,tags,world)=>({id:uid(),text,kind,tags,world,refs:[],status:'inbox',createdAt:Date.now(),updatedAt:Date.now()});
+  const n1=mk('"You keep calling it the end of the world. It\'s only the end of the map."','dialogue',['tone-setter'],'Saltmere');
+  const n2=mk('Opening image: a lighthouse that shines darkness instead of light — ships navigate by avoiding its beam.','scene',['opening','visual'],'Saltmere');
+  const n3=mk('The cartographer heroine measures coastlines that change nightly. Her maps are only true for one day.','character',['protagonist'],'Saltmere');
+  const n4=mk('What if every chapter is one "map-day" — the world literally redraws between chapters?','idea',['structure'],'Saltmere');
+  n1.status='sorted'; n2.status='sorted';
+  s.notes=[n1,n2,n3,n4];
+  s.sequences=[{id:uid(),title:'Saltmere — Act I sketch',description:'First weave: the dark lighthouse cold-open into the cartographer intro.',bgUrl:'',world:'Saltmere',beats:[{noteId:n2.id,time:'Night 0 — cold open'},{noteId:n1.id,time:'Night 0 — first line'}],createdAt:Date.now()}];
+  s.links=[{from:n3.id,to:n4.id,label:'structure hangs on her'}];
+  s.warps=[{id:uid(),tag:'opening',title:'Opening',description:'Everything that could serve as a first impression of the world. The one page a stranger judges us by.',image:null,refs:[],createdAt:Date.now(),updatedAt:Date.now()}];
+  return s;
+}
+
+/* ============ helpers ============ */
+const byId = id => state.notes.find(n=>n.id===id);
+const seqById = id => state.sequences.find(s=>s.id===id);
+const esc = t => (t||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function worlds(){ const w=new Set(); state.notes.forEach(n=>n.world&&w.add(n.world)); state.sequences.forEach(s=>s.world&&w.add(s.world)); return [...w].sort(); }
+// Tags are matched case-insensitively everywhere ("Opening" == "opening"), but the
+// first spelling seen is kept as the display form.
+const norm = t => (t||'').trim().toLowerCase();
+function allTags(){
+  const m=new Map();
+  state.notes.forEach(n=>(n.tags||[]).forEach(x=>{ const k=norm(x); if(k&&!m.has(k)) m.set(k,x.trim()); }));
+  return [...m.values()].sort((a,b)=>a.localeCompare(b));
+}
+function canonTag(t){
+  const k=norm(t); if(!k) return '';
+  const hit=allTags().find(x=>norm(x)===k);
+  return hit||t.trim();
+}
+function notesWithTag(tag){ const k=norm(tag); return state.notes.filter(n=>(n.tags||[]).some(t=>norm(t)===k)); }
+function tagCount(tag){ return notesWithTag(tag).length; }
+function warpOf(tag){ const k=norm(tag); return (state.warps||[]).find(w=>norm(w.tag)===k); }
+function warpById(id){ return (state.warps||[]).find(w=>w.id===id); }
+function seqsOf(noteId){ return state.sequences.filter(s=>s.beats.some(b=>b.noteId===noteId)); }
+function linksOf(noteId){ return state.links.filter(l=>l.from===noteId||l.to===noteId); }
+function parseTags(str){
+  const out=[], seen=new Set();
+  (str||'').split(',').map(t=>t.trim()).filter(Boolean).forEach(t=>{
+    const c=canonTag(t), k=norm(c);
+    if(!seen.has(k)){ seen.add(k); out.push(c); }
+  });
+  return out;
+}
+function parseRefs(str){ return (str||'').split(',').map(t=>t.trim()).filter(Boolean); }
+function fmtDate(ts){ return new Date(ts).toLocaleDateString(undefined,{month:'short',day:'numeric'}); }
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),1800); }
+
+/* ============ render ============ */
+function render(){
+  save();
+  renderNav();
+  document.getElementById('worldList').innerHTML = worlds().map(w=>`<option value="${esc(w)}">`).join('');
+  const m=document.getElementById('main');
+  if(state.view==='inbox') m.innerHTML=viewInbox();
+  else if(state.view==='library') m.innerHTML=viewLibrary();
+  else if(state.view==='sequences') m.innerHTML = state.openSeq ? viewSeqDetail() : viewSeqList();
+  else if(state.view==='warps') m.innerHTML = state.openWarp ? viewWarpDetail() : viewWarpList();
+  bindDrag();
+}
+// Rename the concept here — nav label and page headings follow.
+const WARP='Warp', WARPS='Warps';
+function renderNav(){
+  const inboxCount = state.notes.filter(n=>n.status==='inbox').length;
+  document.getElementById('nav').innerHTML = [
+    ['inbox',`Inbox${inboxCount?`<span class="count">${inboxCount}</span>`:''}`],
+    ['library','Library'],
+    ['sequences','Sequences'],
+    ['warps',WARPS],
+  ].map(([v,label])=>`<button class="${state.view===v?'active':''}" onclick="go('${v}')">${label}</button>`).join('');
+}
+// Clicking a top-level tab always returns to that section's root listing.
+function go(v){ state.view=v; state.openSeq=null; state.openWarp=null; render(); }
+
+/* ---- capture box ---- */
+function captureBox(){
+  return `<div class="capture">
+    <textarea id="capText" placeholder="Drop a spark — a line of dialogue, an image, half an idea…"></textarea>
+    <div class="capture-row">
+      <select id="capKind">${KINDS.map(k=>`<option value="${k}">${k}</option>`).join('')}</select>
+      <input id="capWorld" list="worldList" placeholder="world / project">
+      <input id="capTags" placeholder="tags, comma, separated">
+      <button class="btn" onclick="document.getElementById('capImg').click()" title="Attach a jpg/png image">🖼</button>
+      <input type="file" id="capImg" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="pickCapImage(this)">
+      <span id="capPreview" class="cap-preview">${pendingImage?`<img src="${pendingImage}" alt=""><button class="btn ghost" onclick="pendingImage=null;showCapPreview()" title="remove image">✕</button>`:''}</span>
+      <button class="btn primary" onclick="capture()">Add to Inbox</button>
+    </div>
+    <div class="hint">Ctrl+Enter adds instantly. Capture fast, sort later — that's the whole deal.</div>
+  </div>`;
+}
+let pendingImage=null;
+function pickCapImage(input){
+  const f=input.files[0]; input.value='';
+  if(!f) return;
+  shrinkImage(f).then(d=>{ pendingImage=d; showCapPreview(); toast('Image attached 🖼'); })
+    .catch(()=>toast('Could not read that image'));
+}
+function showCapPreview(){
+  const el=document.getElementById('capPreview');
+  if(el) el.innerHTML=pendingImage?`<img src="${pendingImage}" alt=""><button class="btn ghost" onclick="pendingImage=null;showCapPreview()" title="remove image">✕</button>`:'';
+}
+function shrinkImage(file){
+  return new Promise((resolve,reject)=>{
+    const url=URL.createObjectURL(file);
+    const img=new Image();
+    img.onload=()=>{
+      const MAX=1400, scale=Math.min(1,MAX/Math.max(img.width,img.height));
+      const cv=document.createElement('canvas');
+      cv.width=Math.max(1,Math.round(img.width*scale)); cv.height=Math.max(1,Math.round(img.height*scale));
+      cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+      let out = file.type==='image/png' ? cv.toDataURL('image/png') : cv.toDataURL('image/jpeg',.85);
+      if(out.length>2000000) out=cv.toDataURL('image/jpeg',.8);
+      URL.revokeObjectURL(url); resolve(out);
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); reject(new Error('unreadable image')); };
+    img.src=url;
+  });
+}
+function capture(){
+  const txt=document.getElementById('capText').value.trim();
+  if(!txt&&!pendingImage){ toast('Write something (or attach an image) first ✍️'); return; }
+  state.notes.unshift({id:uid(),text:txt||'(image)',kind:document.getElementById('capKind').value,
+    world:document.getElementById('capWorld').value.trim(),tags:parseTags(document.getElementById('capTags').value),
+    refs:[],image:pendingImage||null,status:'inbox',createdAt:Date.now(),updatedAt:Date.now()});
+  pendingImage=null;
+  render(); toast('Spark saved ✦');
+  const el=document.getElementById('capText'); if(el) el.focus();
+}
+document.addEventListener('keydown',e=>{
+  if(e.ctrlKey&&e.key==='Enter'&&document.activeElement&&document.activeElement.id==='capText') capture();
+});
+
+/* ---- filters ---- */
+let TAGIDX=[];
+function filterBar(){
+  const f=state.filters, ws=worlds();
+  TAGIDX=allTags();
+  return `<div class="filters">
+    <input type="search" placeholder="Search text…" value="${esc(f.q)}" oninput="setF('q',this.value)">
+    <select onchange="setF('world',this.value)"><option value="">all worlds</option>${ws.map(w=>`<option ${f.world===w?'selected':''} value="${esc(w)}">${esc(w)}</option>`).join('')}</select>
+    <select onchange="setF('kind',this.value)"><option value="">all kinds</option>${KINDS.map(k=>`<option ${f.kind===k?'selected':''}>${k}</option>`).join('')}</select>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">${TAGIDX.map((t,i)=>{
+      const on=norm(f.tag)===norm(t), isW=!!warpOf(t);
+      return `<span class="chip ${on?'on':''}"><span onclick="toggleTagFilter(${i})">${esc(t)}</span><button class="chip-star ${isW?'on':''}" onclick="event.stopPropagation();toggleWarp(${i})" title="${isW?`open this ${WARP}`:`make this tag a ${WARP}`}">${isW?'★':'☆'}</button></span>`;
+    }).join('')}</div>
+  </div>`;
+}
+function toggleTagFilter(i){ const t=TAGIDX[i]; setF('tag', norm(state.filters.tag)===norm(t)?'':t); }
+function toggleWarp(i){
+  const t=TAGIDX[i], ex=warpOf(t);
+  if(ex){ openWarp(ex.id); return; }
+  state.warps.unshift({id:uid(),tag:t,title:t,description:'',image:null,refs:[],createdAt:Date.now(),updatedAt:Date.now()});
+  render(); toast(`★ "${t}" is now a ${WARP}`);
+}
+function setF(k,v){ state.filters[k]=v; render(); if(k==='q'){ const el=document.querySelector('input[type=search]'); if(el){el.focus(); el.setSelectionRange(el.value.length,el.value.length);} } }
+function applyFilters(notes){
+  const f=state.filters;
+  return notes.filter(n=>
+    (!f.q || n.text.toLowerCase().includes(f.q.toLowerCase())) &&
+    (!f.world || n.world===f.world) &&
+    (!f.kind || n.kind===f.kind) &&
+    (!f.tag || (n.tags||[]).some(t=>norm(t)===norm(f.tag))));
+}
+
+/* ---- note card ---- */
+function noteStatus(n){ return seqsOf(n.id).length?'seq':(n.status==='inbox'?'inbox':'sorted'); }
+const ST_LABEL={inbox:'inbox',sorted:'sorted',seq:'in sequence'};
+function noteCard(n){
+  const seqs=seqsOf(n.id), nLinks=linksOf(n.id).length, st=noteStatus(n);
+  return `<div class="card st-${st}" onclick="openNote('${n.id}')">
+    ${n.image?`<img class="card-img" src="${n.image}" alt="" loading="lazy">`:''}
+    <div class="card-top"><span class="kind kind-${n.kind}">${n.kind}</span><span class="st-chip">${ST_LABEL[st]}</span></div>
+    <div class="card-text ${n.kind==='dialogue'?'dlg':''}">${esc(n.text)}</div>
+    <div class="card-meta">
+      ${n.world?`<span class="world-pill">${esc(n.world)}</span>`:''}
+      ${(n.tags||[]).map(t=>`<span class="tag">${warpOf(t)?'★ ':''}${esc(t)}</span>`).join('')}
+      ${seqs.length?`<span class="in-seq">⛓ ${seqs.length} seq</span>`:''}
+      ${nLinks?`<span class="in-seq">↔ ${nLinks}</span>`:''}
+      <span style="margin-left:auto;font-size:11.5px;color:var(--ink-faint)">${fmtDate(n.createdAt)}</span>
+    </div></div>`;
+}
+
+/* ---- views ---- */
+function filtersActive(){ const f=state.filters; return !!(f.q||f.world||f.kind||f.tag); }
+function filteredEmpty(){ return `<div class="empty"><b>Nothing matches the current filters.</b><br><br><button class="btn" onclick="clearFilters()">Clear filters</button></div>`; }
+function viewInbox(){
+  const inbox=applyFilters(state.notes.filter(n=>n.status==='inbox'));
+  return captureBox()+filterBar()+
+    (inbox.length?`<div class="grid">${inbox.map(noteCard).join('')}</div>`
+    :(filtersActive()?filteredEmpty()
+    :`<div class="empty"><b>Inbox zero.</b><br>Every spark has been sorted. Drop new ones above.</div>`));
+}
+function viewLibrary(){
+  const notes=applyFilters(state.notes);
+  return `<div class="section-h"><h2>Library — every thread</h2><span style="color:var(--ink-faint);font-size:13px">${notes.length} / ${state.notes.length} notes</span></div>
+    <div class="legend">
+      <span class="lg lg-inbox"><span class="ldot"></span>still in inbox</span>
+      <span class="lg lg-sorted"><span class="ldot"></span>sorted</span>
+      <span class="lg lg-seq"><span class="ldot"></span>woven into a sequence</span>
+    </div>`
+    +filterBar()
+    +(notes.length?`<div class="grid">${notes.map(noteCard).join('')}</div>`:filteredEmpty());
+}
+function seqBg(s){ return s.image || s.bgUrl || ''; }
+function viewSeqList(){
+  return `<div class="section-h"><h2>Sequences — the weaves</h2><button class="btn primary" onclick="newSeq()">+ New sequence</button></div>
+    <div class="seq-grid">${state.sequences.map(s=>`
+      <div class="seq-card" onclick="openSeq('${s.id}')">
+        <div class="seq-cover" ${seqBg(s)?`style="background-image:url('${esc(seqBg(s))}')"`:''}>
+          <div class="seq-cover-shade"><div class="seq-title">${esc(s.title)||'Untitled'}</div></div>
+        </div>
+        <div class="seq-body"><span>${esc(s.description||'')}</span><span style="white-space:nowrap">${s.beats.length} beats</span></div>
+      </div>`).join('')}</div>
+    ${state.sequences.length?'':'<div class="empty"><b>No sequences yet.</b><br>A sequence knits notes into an ordered thread — a scene, an act, a chapter.</div>'}`;
+}
+function newSeq(){
+  const s={id:uid(),title:'',description:'',bgUrl:'',world:'',beats:[],createdAt:Date.now(),updatedAt:Date.now()};
+  state.sequences.unshift(s); state.openSeq=s.id; render();
+}
+function openSeq(id){ state.openSeq=id; state.view='sequences'; render(); }
+
+function viewSeqDetail(){
+  const s=seqById(state.openSeq);
+  if(!s){ state.openSeq=null; return viewSeqList(); }
+  return `<button class="btn ghost" onclick="state.openSeq=null;render()">← All sequences</button>
+  <div style="height:12px"></div>
+  <div class="seq-hero" ${seqBg(s)?`style="background-image:url('${esc(seqBg(s))}')"`:''}>
+    <div class="seq-hero-inner">
+      <input class="title" placeholder="Sequence title…" value="${esc(s.title)}" onchange="updSeq('${s.id}','title',this.value)">
+      <textarea placeholder="What is this weave? (logline, intent, mood…)" onchange="updSeq('${s.id}','description',this.value)">${esc(s.description)}</textarea>
+      <div class="seq-hero-row">
+        <input placeholder="Background image URL (or upload below)" value="${esc(s.bgUrl)}" onchange="updSeq('${s.id}','bgUrl',this.value)">
+        <input placeholder="world / project" list="worldList" style="max-width:180px" value="${esc(s.world||'')}" onchange="updSeq('${s.id}','world',this.value)">
+      </div>
+      <div class="seq-hero-row">
+        <button class="btn" style="flex:0" onclick="document.getElementById('seqImg').click()">🖼 ${s.image?'Replace image':'Upload image'}</button>
+        ${s.image?`<button class="btn ghost" style="flex:0" onclick="removeSeqImage('${s.id}')">Remove image</button>`:''}
+        <input type="file" id="seqImg" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="seqImage('${s.id}',this)">
+      </div>
+    </div>
+  </div>
+  <div class="section-h"><h2>Timeline</h2>
+    <div style="display:flex;gap:8px">
+      <button class="btn" onclick="openPicker('${s.id}')">+ Add note as beat</button>
+      <button class="btn danger" onclick="delSeq('${s.id}')">Delete sequence</button>
+    </div>
+  </div>
+  ${s.beats.length?`<div class="beats" id="beats">${s.beats.map((b,i)=>beatRow(s,b,i)).join('')}</div>`
+   :'<div class="empty">No beats yet. Pull notes in from the Library — order them, stamp each with a moment in time.</div>'}`;
+}
+function beatRow(s,b,i){
+  const n=byId(b.noteId);
+  if(!n) return '';
+  return `<div class="beat" draggable="true" data-i="${i}">
+    <span class="drag-handle" title="drag to reorder">⠿</span>
+    <div class="beat-main">
+      <span class="kind kind-${n.kind}" style="margin-bottom:6px;display:inline-block">${n.kind}</span>
+      ${n.image?`<img class="beat-img" src="${n.image}" alt="" loading="lazy" onclick="openNote('${n.id}')">`:''}
+      <div class="beat-text ${n.kind==='dialogue'?'dlg':''}" onclick="openNote('${n.id}')" title="open note">${esc(n.text)}</div>
+    </div>
+    <div class="beat-time"><span class="flabel">moment</span>
+      <input placeholder="e.g. Dawn, Day 3" value="${esc(b.time||'')}" onchange="updBeat('${s.id}',${i},this.value)"></div>
+    <div class="beat-ctl">
+      <button onclick="moveBeat('${s.id}',${i},-1)" title="up">▲</button>
+      <button onclick="moveBeat('${s.id}',${i},1)" title="down">▼</button>
+      <button onclick="rmBeat('${s.id}',${i})" title="remove from sequence">✕</button>
+    </div></div>`;
+}
+function updSeq(id,k,v){ const s=seqById(id); if(s){ s[k]=v.trim(); s.updatedAt=Date.now(); render(); } }
+function seqImage(id,input){
+  const f=input.files[0]; input.value='';
+  if(!f) return;
+  shrinkImage(f).then(d=>{ const s=seqById(id); if(s){ s.image=d; s.updatedAt=Date.now(); render(); toast('Sequence image set 🖼'); } })
+    .catch(()=>toast('Could not read that image'));
+}
+function removeSeqImage(id){ const s=seqById(id); if(s){ s.image=null; s.updatedAt=Date.now(); render(); } }
+function updBeat(sid,i,v){ const s=seqById(sid); if(s&&s.beats[i]){ s.beats[i].time=v; s.updatedAt=Date.now(); save(); } }
+function moveBeat(sid,i,d){ const s=seqById(sid); const j=i+d; if(!s||j<0||j>=s.beats.length) return; [s.beats[i],s.beats[j]]=[s.beats[j],s.beats[i]]; s.updatedAt=Date.now(); render(); }
+function rmBeat(sid,i){ const s=seqById(sid); if(s){ s.beats.splice(i,1); s.updatedAt=Date.now(); render(); } }
+function delSeq(id){ if(!confirm('Delete this sequence? (Notes stay in the library.)')) return;
+  state.sequences=state.sequences.filter(s=>s.id!==id); state.openSeq=null; render(); }
+
+/* drag reorder beats */
+let dragIdx=null;
+function bindDrag(){
+  const wrap=document.getElementById('beats'); if(!wrap) return;
+  wrap.querySelectorAll('.beat').forEach(el=>{
+    el.addEventListener('dragstart',e=>{ dragIdx=+el.dataset.i; e.dataTransfer.effectAllowed='move'; });
+    el.addEventListener('dragover',e=>{ e.preventDefault(); el.classList.add('dragover'); });
+    el.addEventListener('dragleave',()=>el.classList.remove('dragover'));
+    el.addEventListener('drop',e=>{
+      e.preventDefault(); el.classList.remove('dragover');
+      const to=+el.dataset.i, s=seqById(state.openSeq);
+      if(s&&dragIdx!==null&&dragIdx!==to){ const [m]=s.beats.splice(dragIdx,1); s.beats.splice(to,0,m); s.updatedAt=Date.now(); render(); }
+      dragIdx=null;
+    });
+  });
+}
+
+/* ---- warps: a tag promoted to a hub page ---- */
+function openWarp(id){ state.openWarp=id; state.view='warps'; render(); }
+function viewWarpList(){
+  const ws=state.warps||[];
+  return `<div class="section-h"><h2>${WARPS} — the threads everything crosses</h2>
+      <button class="btn primary" onclick="newWarp()">+ New ${WARP}</button></div>
+    <p style="color:var(--ink-dim);font-size:14px;margin-bottom:18px;max-width:66ch">A ${WARP} is a tag raised to a place of its own: a recurring motif, character, or question, with room for its own notes and links, gathering every thread that carries it.</p>
+    ${ws.length?`<div class="warp-grid">${ws.map(w=>{
+      const c=tagCount(w.tag);
+      return `<div class="warp-card" onclick="openWarp('${w.id}')">
+        ${w.image?`<div class="warp-cover" style="background-image:url('${esc(w.image)}')"></div>`:''}
+        <div class="warp-body">
+          <div class="warp-title">★ ${esc(w.title||w.tag)}</div>
+          <div class="warp-tag">#${esc(w.tag)}</div>
+          ${w.description?`<p class="warp-desc">${esc(w.description)}</p>`:''}
+          <div class="warp-meta">${c} thread${c===1?'':'s'}${(w.refs||[]).length?` · ${w.refs.length} link${w.refs.length===1?'':'s'}`:''}</div>
+        </div></div>`;
+    }).join('')}</div>`
+    :`<div class="empty"><b>No ${WARPS} yet.</b><br>Star a tag anywhere you see one (☆ on the tag chips), or create one here.</div>`}`;
+}
+function newWarp(){
+  const tags=allTags().filter(t=>!warpOf(t));
+  const div=document.createElement('div'); div.className='overlay';
+  div.onclick=e=>{ if(e.target===div) closeModal(); };
+  div.innerHTML=`<div class="modal"><h3>New ${WARP}</h3>
+    <p style="font-size:13.5px;color:var(--ink-dim);margin-bottom:10px">Pick an existing tag to raise, or type a new name.</p>
+    <div class="frow"><div style="flex:2"><input id="wpNew" list="wpTags" placeholder="tag name…" autofocus>
+      <datalist id="wpTags">${tags.map(t=>`<option value="${esc(t)}">`).join('')}</datalist></div>
+      <button class="btn primary" style="flex:0" onclick="createWarpFromInput()">Create</button></div>
+    ${tags.length?`<div class="picker">${tags.map((t,i)=>`<div class="pick-row" onclick="createWarp(${JSON.stringify(t).replace(/"/g,'&quot;')})">${esc(t)} <span style="color:var(--ink-faint);font-size:12.5px">· ${tagCount(t)} thread${tagCount(t)===1?'':'s'}</span></div>`).join('')}</div>`:''}
+  </div>`;
+  document.body.appendChild(div);
+  setTimeout(()=>{ const el=document.getElementById('wpNew'); if(el) el.focus(); },30);
+}
+function createWarpFromInput(){ const v=document.getElementById('wpNew').value.trim(); if(!v){ toast('Name it first'); return; } createWarp(v); }
+function createWarp(tag){
+  const t=canonTag(tag), ex=warpOf(t);
+  closeModal();
+  if(ex){ toast(`Already a ${WARP}`); openWarp(ex.id); return; }
+  const w={id:uid(),tag:t,title:t,description:'',image:null,refs:[],createdAt:Date.now(),updatedAt:Date.now()};
+  state.warps.unshift(w); openWarp(w.id); toast(`★ ${WARP} created`);
+}
+function viewWarpDetail(){
+  const w=warpById(state.openWarp);
+  if(!w){ state.openWarp=null; return viewWarpList(); }
+  const threads=notesWithTag(w.tag);
+  const seqs=state.sequences.filter(s=>s.beats.some(b=>threads.some(n=>n.id===b.noteId)));
+  const noteRefs=threads.flatMap(n=>(n.refs||[]).map(r=>({url:r,from:n})));
+  return `<button class="btn ghost" onclick="state.openWarp=null;render()">← All ${WARPS}</button>
+  <div style="height:12px"></div>
+  <div class="seq-hero" ${w.image?`style="background-image:url('${esc(w.image)}')"`:''}>
+    <div class="seq-hero-inner">
+      <div style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:6px">★ ${WARP} · #${esc(w.tag)}</div>
+      <input class="title" placeholder="Title…" value="${esc(w.title||'')}" onchange="updWarp('${w.id}','title',this.value)">
+      <textarea placeholder="What does this thread mean to the work? Why does it keep coming back?" onchange="updWarp('${w.id}','description',this.value)">${esc(w.description||'')}</textarea>
+      <div class="seq-hero-row">
+        <button class="btn" style="flex:0" onclick="document.getElementById('warpImg').click()">🖼 ${w.image?'Replace image':'Upload image'}</button>
+        ${w.image?`<button class="btn ghost" style="flex:0" onclick="removeWarpImage('${w.id}')">Remove image</button>`:''}
+        <input type="file" id="warpImg" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="warpImage('${w.id}',this)">
+        <span style="flex:1"></span>
+        <button class="btn danger" style="flex:0" onclick="delWarp('${w.id}')">Unstar / delete</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-h"><h2>Pinned links</h2></div>
+  <div class="links-list">${(w.refs||[]).map((r,i)=>`<div class="link-row">
+      <span class="lbl">${esc(r.label||'link')}</span>
+      <a class="txt" href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a>
+      <button onclick="rmWarpRef('${w.id}',${i})" title="remove">✕</button></div>`).join('')
+    ||`<span style="font-size:13.5px;color:var(--ink-faint)">Nothing pinned yet — add reference art, a playlist, a doc.</span>`}</div>
+  <div class="frow" style="margin-top:10px">
+    <input id="wrLabel" placeholder="label (e.g. mood board)" style="flex:1">
+    <input id="wrUrl" placeholder="https://…" style="flex:2">
+    <button class="btn" style="flex:0" onclick="addWarpRef('${w.id}')">+ Pin link</button>
+  </div>
+
+  <div class="section-h" style="margin-top:34px"><h2>Threads carrying #${esc(w.tag)}</h2>
+    <span style="color:var(--ink-faint);font-size:13px">${threads.length} note${threads.length===1?'':'s'}</span></div>
+  ${threads.length?`<div class="grid">${threads.map(noteCard).join('')}</div>`
+    :`<div class="empty">No notes carry this tag yet. Tag a note <b>${esc(w.tag)}</b> and it appears here automatically.</div>`}
+
+  ${noteRefs.length?`<div class="section-h" style="margin-top:34px"><h2>References on those threads</h2></div>
+    <div class="links-list">${noteRefs.map(r=>`<div class="link-row">
+      <a class="txt" href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a>
+      <span class="lbl" style="cursor:pointer" onclick="openNote('${r.from.id}')">from a note ↗</span></div>`).join('')}</div>`:''}
+
+  ${seqs.length?`<div class="section-h" style="margin-top:34px"><h2>Appears in these weaves</h2></div>
+    <div class="links-list">${seqs.map(s=>`<div class="link-row">
+      <span class="lbl">⛓ sequence</span>
+      <span class="txt" onclick="openSeq('${s.id}')">${esc(s.title||'Untitled')}</span></div>`).join('')}</div>`:''}`;
+}
+function updWarp(id,k,v){ const w=warpById(id); if(w){ w[k]=v.trim(); w.updatedAt=Date.now(); render(); } }
+function warpImage(id,input){
+  const f=input.files[0]; input.value=''; if(!f) return;
+  shrinkImage(f).then(d=>{ const w=warpById(id); if(w){ w.image=d; w.updatedAt=Date.now(); render(); toast('Image set 🖼'); } })
+    .catch(()=>toast('Could not read that image'));
+}
+function removeWarpImage(id){ const w=warpById(id); if(w){ w.image=null; w.updatedAt=Date.now(); render(); } }
+function addWarpRef(id){
+  const w=warpById(id); if(!w) return;
+  const url=document.getElementById('wrUrl').value.trim();
+  if(!url){ toast('Paste a URL first'); return; }
+  w.refs=w.refs||[];
+  w.refs.push({label:document.getElementById('wrLabel').value.trim(),url});
+  w.updatedAt=Date.now(); render(); toast('Link pinned');
+}
+function rmWarpRef(id,i){ const w=warpById(id); if(w){ w.refs.splice(i,1); w.updatedAt=Date.now(); render(); } }
+function delWarp(id){
+  const w=warpById(id); if(!w) return;
+  if(!confirm(`Remove the ${WARP} "${w.title||w.tag}"?\n\nThe tag and all its notes stay — only this hub page and its pinned links go.`)) return;
+  state.warps=state.warps.filter(x=>x.id!==id); state.openWarp=null; render();
+}
+
+/* ---- note modal ---- */
+function openNote(id){
+  const n=byId(id); if(!n) return;
+  const links=linksOf(id);
+  const div=document.createElement('div'); div.className='overlay'; div.id='noteModal';
+  div.onclick=e=>{ if(e.target===div) closeModal(); };
+  div.innerHTML=`<div class="modal">
+    <h3>Edit thread</h3>
+    ${n.image?`<img src="${n.image}" alt="" style="max-width:100%;max-height:260px;border-radius:10px;margin-bottom:10px;display:block">`:''}
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <button class="btn" onclick="document.getElementById('nImg').click()">🖼 ${n.image?'Replace image':'Attach image'}</button>
+      ${n.image?`<button class="btn ghost" onclick="removeImage('${n.id}')">Remove image</button>`:''}
+      <input type="file" id="nImg" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="modalImage('${n.id}',this)">
+    </div>
+    <textarea id="nText">${esc(n.text)}</textarea>
+    <div style="height:10px"></div>
+    <div class="frow">
+      <div><span class="flabel">kind</span><select id="nKind">${KINDS.map(k=>`<option ${n.kind===k?'selected':''}>${k}</option>`).join('')}</select></div>
+      <div><span class="flabel">world</span><input id="nWorld" list="worldList" value="${esc(n.world||'')}"></div>
+      <div><span class="flabel">status</span><select id="nStatus"><option ${n.status==='inbox'?'selected':''}>inbox</option><option ${n.status==='sorted'?'selected':''}>sorted</option></select></div>
+    </div>
+    <div class="frow"><div style="flex:2"><span class="flabel">tags (comma separated)</span><input id="nTags" value="${esc((n.tags||[]).join(', '))}"></div></div>
+    <div class="frow"><div style="flex:2"><span class="flabel">reference links (image / doc / song URLs, comma separated)</span><input id="nRefs" value="${esc((n.refs||[]).join(', '))}"></div></div>
+    ${n.refs&&n.refs.length?`<div class="refs-list">${n.refs.map(r=>`<a href="${esc(r)}" target="_blank" rel="noopener">${esc(r)}</a>`).join('<br>')}</div>`:''}
+    <div style="margin-top:14px"><span class="flabel">linked threads</span>
+      <div class="links-list">${links.map(l=>{
+        const otherId=l.from===id?l.to:l.from, o=byId(otherId);
+        return o?`<div class="link-row"><span class="lbl">${esc(l.label||'↔')}</span><span class="txt" onclick="closeModal();openNote('${o.id}')">${esc(o.text.slice(0,90))}</span><button onclick="unlink('${l.from}','${l.to}');openNote('${id}')" title="unlink">✕</button></div>`:'';
+      }).join('')||'<span style="font-size:13px;color:var(--ink-faint)">none yet</span>'}</div>
+      <div style="margin-top:8px"><input id="linkSearch" placeholder="Search a note to link…" oninput="linkSuggest('${id}',this.value)" style="width:100%"><div id="linkSug" class="picker"></div></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn danger" onclick="delNote('${id}')">Delete</button>
+      <span style="flex:1"></span>
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" onclick="saveNote('${id}')">Save</button>
+    </div></div>`;
+  document.body.appendChild(div);
+}
+function closeModal(){ document.querySelectorAll('.overlay').forEach(o=>o.remove()); }
+function modalImage(id,input){
+  const f=input.files[0]; input.value='';
+  if(!f) return;
+  shrinkImage(f).then(d=>{ const n=byId(id); if(n){ n.image=d; n.updatedAt=Date.now(); save(); closeModal(); openNote(id); toast('Image attached 🖼'); } })
+    .catch(()=>toast('Could not read that image'));
+}
+function removeImage(id){
+  const n=byId(id); if(!n) return;
+  n.image=null; n.updatedAt=Date.now(); save(); closeModal(); openNote(id);
+}
+function saveNote(id){
+  const n=byId(id); if(!n) return;
+  n.text=document.getElementById('nText').value.trim();
+  n.kind=document.getElementById('nKind').value;
+  n.world=document.getElementById('nWorld').value.trim();
+  n.status=document.getElementById('nStatus').value;
+  n.tags=parseTags(document.getElementById('nTags').value);
+  n.refs=parseRefs(document.getElementById('nRefs').value);
+  n.updatedAt=Date.now();
+  closeModal(); render(); toast('Saved');
+}
+function delNote(id){
+  if(!confirm('Delete this note everywhere (library, sequences, links)?')) return;
+  state.notes=state.notes.filter(n=>n.id!==id);
+  state.sequences.forEach(s=>s.beats=s.beats.filter(b=>b.noteId!==id));
+  state.links=state.links.filter(l=>l.from!==id&&l.to!==id);
+  closeModal(); render();
+}
+function linkSuggest(id,q){
+  const box=document.getElementById('linkSug'); if(!q.trim()){ box.innerHTML=''; return; }
+  const hits=state.notes.filter(n=>n.id!==id&&n.text.toLowerCase().includes(q.toLowerCase())).slice(0,6);
+  box.innerHTML=hits.map(h=>`<div class="pick-row" onclick="addLink('${id}','${h.id}')">${esc(h.text.slice(0,110))}</div>`).join('');
+}
+function addLink(a,b){
+  if(state.links.some(l=>(l.from===a&&l.to===b)||(l.from===b&&l.to===a))){ toast('Already linked'); return; }
+  const label=prompt('Label for this relation? (optional — e.g. "same scene", "contradicts", "echoes")')||'';
+  state.links.push({from:a,to:b,label}); save();
+  closeModal(); openNote(a); toast('Linked ↔');
+}
+function unlink(a,b){ state.links=state.links.filter(l=>!(l.from===a&&l.to===b)); closeModal(); }
+
+/* ---- beat picker ---- */
+function openPicker(seqId){
+  const div=document.createElement('div'); div.className='overlay';
+  div.onclick=e=>{ if(e.target===div) closeModal(); };
+  div.innerHTML=`<div class="modal"><h3>Add a note to this sequence</h3>
+    <input id="pickSearch" placeholder="Search notes…" style="width:100%" oninput="pickSuggest('${seqId}',this.value)">
+    <div id="pickList" class="picker"></div></div>`;
+  document.body.appendChild(div);
+  pickSuggest(seqId,'');
+  document.getElementById('pickSearch').focus();
+}
+function pickSuggest(seqId,q){
+  const s=seqById(seqId); if(!s) return;
+  const used=new Set(s.beats.map(b=>b.noteId));
+  const hits=state.notes.filter(n=>!used.has(n.id)&&(!q.trim()||n.text.toLowerCase().includes(q.toLowerCase()))).slice(0,20);
+  document.getElementById('pickList').innerHTML =
+    hits.map(h=>`<div class="pick-row" onclick="addBeat('${seqId}','${h.id}')"><span class="kind kind-${h.kind}">${h.kind}</span> ${esc(h.text.slice(0,110))}</div>`).join('')
+    || '<div class="empty" style="padding:20px">No unused notes match.</div>';
+}
+function addBeat(seqId,noteId){
+  const s=seqById(seqId), n=byId(noteId); if(!s||!n) return;
+  s.beats.push({noteId,time:''}); s.updatedAt=Date.now();
+  if(n.status==='inbox'){ n.status='sorted'; n.updatedAt=Date.now(); }
+  closeModal(); render(); toast('Beat added — now give it a moment in time');
+}
+
+/* ---- export / import ---- */
+function exportData(){
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`storyloom-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click(); URL.revokeObjectURL(a.href); toast('Backup downloaded');
+}
+function importData(input){
+  const f=input.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{
+      const s=JSON.parse(r.result);
+      if(!Array.isArray(s.notes)||!Array.isArray(s.sequences)) throw new Error('bad shape');
+      state=Object.assign(blank(),s); render(); toast('Imported ✦');
+    }catch(e){ alert('That file does not look like a Storyloom backup.'); } };
+  r.readAsText(f); input.value='';
+}
+
+/* ---- GitHub sync ---- */
+const SYNCKEY='storyloom.sync';
+function syncCfg(){ try{ return JSON.parse(localStorage.getItem(SYNCKEY))||{}; }catch(e){ return {}; } }
+function saveSyncCfg(c){ localStorage.setItem(SYNCKEY, JSON.stringify(c)); }
+function openSync(){
+  const c=syncCfg();
+  const div=document.createElement('div'); div.className='overlay';
+  div.onclick=e=>{ if(e.target===div) closeModal(); };
+  div.innerHTML=`<div class="modal"><h3>GitHub sync</h3>
+    <p style="font-size:13.5px;color:var(--ink-dim);margin-bottom:12px">Saves the vault as a JSON file in a GitHub repo — free storage, both of you can pull the same canon on any device, and every push is a commit, so the full history of your world is kept forever. Use a <b>private</b> repo and a fine-grained token scoped to just that repo (permission: Contents — read &amp; write).</p>
+    <div class="frow"><div style="flex:2"><span class="flabel">repository (owner/name)</span><input id="syRepo" placeholder="your-username/storyloom-vault" value="${esc(c.repo||'')}"></div>
+    <div><span class="flabel">branch</span><input id="syBranch" value="${esc(c.branch||'main')}"></div></div>
+    <div class="frow"><div><span class="flabel">file path in repo</span><input id="syPath" value="${esc(c.path||'vault.json')}"></div></div>
+    <div class="frow"><div style="flex:2"><span class="flabel">fine-grained personal access token</span><input id="syTok" type="password" value="${esc(c.token||'')}" placeholder="github_pat_…"></div></div>
+    <p style="font-size:12px;color:var(--ink-faint)">The token stays in this browser only — it is never written into the vault file, an export, or the page itself. Each browser you use needs it entered once.</p>
+    <div id="syStatus" style="font-size:13px;color:var(--accent3);min-height:18px;margin-top:6px">${serverMode?'This device is running server.js, so the vault saves to disk here. Sync copies it to GitHub as well.':(cloudMode?'Auto-sync is ON — changes save to GitHub a couple of seconds after you stop typing.':'Enter a repo and token, then Connect to turn on auto-sync.')}</div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Close</button>
+      <span style="flex:1"></span>
+      <button class="btn" onclick="ghPull()" title="Replace this device's vault with the GitHub copy">⇣ Pull</button>
+      ${serverMode?'':`<button class="btn" onclick="connectCloud()" title="Turn on automatic syncing">⟳ Connect</button>`}
+      <button class="btn primary" onclick="ghPush()" title="Upload this device's vault to GitHub now">⇡ Push</button>
+    </div></div>`;
+  document.body.appendChild(div);
+}
+function readSyncForm(){
+  const c={repo:document.getElementById('syRepo').value.trim(),
+    branch:document.getElementById('syBranch').value.trim()||'main',
+    path:document.getElementById('syPath').value.trim()||'vault.json',
+    token:document.getElementById('syTok').value.trim(),
+    sha:syncCfg().sha};
+  saveSyncCfg(c); return c;
+}
+async function connectCloud(){
+  const c=readSyncForm();
+  if(!c.repo||!c.token){ syStatus('Repository and token are required.',1); return; }
+  syStatus('Connecting…');
+  const r=await fetch(`${ghUrl(c)}?ref=${encodeURIComponent(c.branch||'main')}`,{headers:ghHeaders(c),cache:'no-store'}).catch(()=>null);
+  if(!r){ syStatus('Network error reaching GitHub.',1); return; }
+  if(r.status===401||r.status===403){ syStatus('GitHub rejected the token — check it has Contents: read & write on that repo.',1); return; }
+  if(r.status!==200&&r.status!==404){ syStatus(`GitHub said ${r.status} — check owner/repo and branch.`,1); return; }
+  if(!cloudMode){ cloudMode=true; startCloudWatch(); }
+  syStatus('Connected ✓ auto-sync is on.');
+  closeModal();
+  await cloudPull(false);
+  if(r.status===404) cloudPush();
+  toast('☁ Auto-sync connected');
+}
+function syStatus(msg,err){ const el=document.getElementById('syStatus'); if(el){ el.textContent=msg; el.style.color=err?'var(--danger)':'var(--accent3)'; } }
+function ghHeaders(c){ return {'Authorization':'Bearer '+c.token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}; }
+function b64enc(str){ const bytes=new TextEncoder().encode(str); let bin=''; for(let i=0;i<bytes.length;i+=8192) bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+8192)); return btoa(bin); }
+function b64dec(b64){ const bin=atob(b64.replace(/\s/g,'')); return new TextDecoder().decode(Uint8Array.from(bin,ch=>ch.charCodeAt(0))); }
+async function ghPull(){
+  const c=readSyncForm();
+  if(!c.repo||!c.token){ syStatus('Repository and token are required.',1); return; }
+  syStatus('Pulling…');
+  try{
+    const r=await fetch(`https://api.github.com/repos/${c.repo}/contents/${c.path}?ref=${encodeURIComponent(c.branch)}`,{headers:ghHeaders(c)});
+    if(r.status===404){ syStatus('No vault file in that repo yet — Push first to create it.',1); return; }
+    if(!r.ok){ syStatus(`GitHub said ${r.status} — check repo name, branch, and token.`,1); return; }
+    const j=await r.json();
+    const incoming=JSON.parse(b64dec(j.content));
+    if(!Array.isArray(incoming.notes)||!Array.isArray(incoming.sequences)) throw new Error('file is not a Storyloom vault');
+    if(!confirm(`Replace this device's vault with the GitHub copy?\n(${incoming.notes.length} notes, ${incoming.sequences.length} sequences)`)){ syStatus('Pull cancelled.'); return; }
+    c.sha=j.sha; saveSyncCfg(c);
+    state=Object.assign(blank(),incoming);
+    closeModal(); render(); toast('Pulled from GitHub ⇣');
+  }catch(e){ syStatus('Pull failed: '+e.message,1); }
+}
+async function ghPush(){
+  const c=readSyncForm();
+  if(!c.repo||!c.token){ syStatus('Repository and token are required.',1); return; }
+  syStatus('Pushing…');
+  try{
+    if(!c.sha){
+      const r0=await fetch(`https://api.github.com/repos/${c.repo}/contents/${c.path}?ref=${encodeURIComponent(c.branch)}`,{headers:ghHeaders(c)});
+      if(r0.ok){ c.sha=(await r0.json()).sha; }
+    }
+    const body={message:'storyloom vault '+new Date().toISOString(),content:b64enc(JSON.stringify(stripUi(state),null,2)),branch:c.branch};
+    if(c.sha) body.sha=c.sha;
+    const r=await fetch(`https://api.github.com/repos/${c.repo}/contents/${c.path}`,{method:'PUT',headers:ghHeaders(c),body:JSON.stringify(body)});
+    if(r.status===409||r.status===422){ syStatus('GitHub has newer changes (probably from the other of you) — Pull first, then Push again.',1); return; }
+    if(!r.ok){ syStatus(`GitHub said ${r.status} — check repo name, branch, and token.`,1); return; }
+    const j=await r.json(); c.sha=j.content.sha; saveSyncCfg(c);
+    syStatus('Pushed ✓ — the vault is on GitHub.'); toast('Pushed to GitHub ⇡');
+  }catch(e){ syStatus('Push failed: '+e.message,1); }
+}
+
+/* ---- Obsidian / Logseq markdown import ---- */
+function parseMd(name,text){
+  const tags=new Set(); let body=text.replace(/\r\n/g,'\n');
+  const fm=body.match(/^---\n([\s\S]*?)\n---\n?/);
+  if(fm){
+    body=body.slice(fm[0].length);
+    const inline=fm[1].match(/^tags:[ \t]*\[?([^\n\[]+?)\]?[ \t]*$/m);
+    if(inline) inline[1].split(',').forEach(t=>{ t=t.replace(/["'#]/g,'').trim(); if(t)tags.add(t); });
+    const list=fm[1].match(/^tags:[ \t]*\n((?:[ \t]*-[^\n]*\n?)+)/m);
+    if(list) [...list[1].matchAll(/-[ \t]*(.+)/g)].forEach(m=>{ const t=m[1].replace(/["'#]/g,'').trim(); if(t)tags.add(t); });
+  }
+  body=body.replace(/^[ \t]*-?[ \t]*([\w-]+)::[ \t]*(.*)$/gm,(all,k,v)=>{
+    if(k.toLowerCase()==='tags') v.split(',').forEach(t=>{ t=t.replace(/[#\[\]]/g,'').trim(); if(t)tags.add(t); });
+    return '';
+  });
+  [...body.matchAll(/(?:^|[\s(])#([A-Za-z][\w/-]*)/gm)].forEach(m=>tags.add(m[1]));
+  const wikis=[...body.matchAll(/\[\[([^\]|]+)(?:\|[^\]]*)?\]\]/g)].map(m=>m[1].trim()).filter(Boolean);
+  const title=name.replace(/\.(md|markdown|txt)$/i,'').trim();
+  return {title,body:body.trim(),tags:[...tags].filter(Boolean),wikis};
+}
+function importMd(input){
+  const files=[...input.files]; input.value='';
+  if(!files.length) return;
+  Promise.all(files.map(f=>f.text().then(text=>({name:f.name,text}))))
+  .then(items=>{
+    const world=(prompt('Assign the imported notes to a world/project? (leave blank for none)')||'').trim();
+    const made=[], titleMap={};
+    state.notes.forEach(n=>{ const t=n.text.split('\n')[0].trim().toLowerCase(); if(t&&!(t in titleMap)) titleMap[t]=n.id; });
+    items.forEach(it=>{
+      const p=parseMd(it.name,it.text);
+      if(!p.title&&!p.body) return;
+      const n={id:uid(),text:p.title+(p.body?'\n\n'+p.body:''),kind:'idea',world,
+        tags:p.tags,refs:[],status:'inbox',createdAt:Date.now(),updatedAt:Date.now()};
+      state.notes.unshift(n); made.push({note:n,wikis:p.wikis});
+      titleMap[p.title.toLowerCase()]=n.id;
+    });
+    let linkCount=0;
+    made.forEach(m=>m.wikis.forEach(w=>{
+      const to=titleMap[w.toLowerCase()];
+      if(to&&to!==m.note.id&&!state.links.some(l=>(l.from===m.note.id&&l.to===to)||(l.from===to&&l.to===m.note.id))){
+        state.links.push({from:m.note.id,to,label:'wikilink'}); linkCount++;
+      }
+    }));
+    state.view='inbox'; render();
+    toast(`Imported ${made.length} note${made.length===1?'':'s'}${linkCount?` + ${linkCount} wikilink${linkCount===1?'':'s'}`:''} ✦`);
+  });
+}
+
+/* ---- disk persistence (via server.js /api/vault) ---- */
+function setBadge(txt,err){
+  const el=document.getElementById('storeBadge');
+  if(el){ el.textContent=txt; el.style.color=err?'var(--danger)':'var(--ink-faint)'; }
+}
+async function pushToServer(){
+  try{
+    const r=await fetch('/api/vault',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(state)});
+    setBadge(r.ok?'⛁ vault.json ✓':'⛁ disk save failed', !r.ok);
+  }catch(e){ setBadge('⛁ disk save failed',true); }
+}
+function mergeVaults(local,remote){
+  const out=blank();
+  out.view=local.view; out.filters=local.filters; out.openSeq=local.openSeq; out.openWarp=local.openWarp;
+  const wm=new Map();
+  (remote.warps||[]).forEach(w=>wm.set(norm(w.tag),w));
+  (local.warps||[]).forEach(w=>{ const k=norm(w.tag), ex=wm.get(k); if(!ex||(w.updatedAt||0)>=(ex.updatedAt||0)) wm.set(k,w); });
+  out.warps=[...wm.values()];
+  const nm=new Map();
+  (remote.notes||[]).forEach(n=>nm.set(n.id,n));
+  (local.notes||[]).forEach(n=>{ const ex=nm.get(n.id); if(!ex||(n.updatedAt||0)>=(ex.updatedAt||0)) nm.set(n.id,n); });
+  out.notes=[...nm.values()].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  const sm=new Map();
+  (remote.sequences||[]).forEach(s=>sm.set(s.id,s));
+  (local.sequences||[]).forEach(s=>{ const ex=sm.get(s.id); if(!ex||(s.updatedAt||0)>=(ex.updatedAt||0)) sm.set(s.id,s); });
+  out.sequences=[...sm.values()];
+  const seen=new Set();
+  out.links=[...(remote.links||[]),...(local.links||[])].filter(l=>{
+    const k=[l.from,l.to].sort().join('|');
+    if(seen.has(k)) return false; seen.add(k); return true;
+  });
+  return dedupeByText(out);
+}
+// Two devices can hold the same note under different ids (e.g. both got the demo
+// seed, or the same file was imported twice). Collapse exact-text duplicates and
+// remap sequences/links onto the surviving note.
+function dedupeByText(v){
+  const referenced=new Set();
+  v.sequences.forEach(s=>s.beats.forEach(b=>referenced.add(b.noteId)));
+  const keep=new Map(), remap={};
+  v.notes.slice()
+    .sort((a,b)=>(referenced.has(a.id)?0:1)-(referenced.has(b.id)?0:1)||(a.createdAt||0)-(b.createdAt||0))
+    .forEach(n=>{
+      const k=n.text.trim()+'|'+(n.image?(n.image.length+n.image.slice(-40)):'');
+      const ex=keep.get(k);
+      if(!ex) keep.set(k,n); else remap[n.id]=ex.id;
+    });
+  if(!Object.keys(remap).length) return v;
+  v.notes=v.notes.filter(n=>!(n.id in remap));
+  v.sequences.forEach(s=>{
+    s.beats.forEach(b=>{ if(remap[b.noteId]) b.noteId=remap[b.noteId]; });
+    const sb=new Set(); s.beats=s.beats.filter(b=>{ if(sb.has(b.noteId)) return false; sb.add(b.noteId); return true; });
+  });
+  v.links=v.links.map(l=>({from:remap[l.from]||l.from,to:remap[l.to]||l.to,label:l.label})).filter(l=>l.from!==l.to);
+  const sl=new Set();
+  v.links=v.links.filter(l=>{ const k=[l.from,l.to].sort().join('|'); if(sl.has(k)) return false; sl.add(k); return true; });
+  return v;
+}
+async function initStorage(){
+  // 1) Is server.js behind this page? Its own header proves it, so a static host's
+  //    404 page is never mistaken for "our API, vault not created yet". Only worth
+  //    asking when served from a local machine — GitHub Pages never has an API.
+  const maybeLocal=/^(localhost|127\.0\.0\.1|\[::1\]|.*\.local)$/i.test(location.hostname);
+  try{
+    if(!maybeLocal) throw new Error('static host');
+    const r=await fetch('/api/vault',{cache:'no-store'});
+    if(r.headers.get('X-Storyloom')){
+      serverMode=true;
+      if(r.ok){
+        const remote=await r.json();
+        if(remote&&Array.isArray(remote.notes)) state=mergeVaults(state,remote);
+      }else if(freshVault){ state=seed(); }
+      render(); pushToServer();
+      return;
+    }
+  }catch(e){ /* file:// or offline — fall through */ }
+
+  // 2) No local server: GitHub becomes the vault if sync is configured.
+  const c=syncCfg();
+  if(c.repo&&c.token){
+    cloudMode=true;
+    startCloudWatch();
+    await cloudPull(true);
+    return;
+  }
+
+  // 3) Neither — this browser only.
+  if(freshVault){ state=seed(); render(); }
+  setBadge('⛁ this browser only');
+}
+
+/* ---- automatic GitHub sync (used when hosted on Pages / any static host) ---- */
+function ghUrl(c){ return `https://api.github.com/repos/${c.repo}/contents/${c.path||'vault.json'}`; }
+async function cloudPull(silent){
+  const c=syncCfg();
+  if(!cloudMode||!c.repo||!c.token) return;
+  try{
+    const r=await fetch(`${ghUrl(c)}?ref=${encodeURIComponent(c.branch||'main')}`,{headers:ghHeaders(c),cache:'no-store'});
+    if(r.status===404){ setBadge('☁ new vault — saving…'); if(freshVault){ state=seed(); suppressRender(); } cloudPush(); return; }
+    if(!r.ok){ setBadge('☁ cannot reach GitHub',true); return; }
+    const j=await r.json();
+    if(j.sha!==c.sha){
+      const remote=JSON.parse(b64dec(j.content));
+      if(remote&&Array.isArray(remote.notes)){
+        const before=JSON.stringify({n:state.notes,s:state.sequences,w:state.warps,l:state.links});
+        state=mergeVaults(state,remote);
+        c.sha=j.sha; saveSyncCfg(c);
+        suppressRender();
+        const after=JSON.stringify({n:state.notes,s:state.sequences,w:state.warps,l:state.links});
+        // our copy contributed something the remote lacked → send it back up
+        if(after!==JSON.stringify({n:remote.notes,s:remote.sequences,w:remote.warps||[],l:remote.links})) cloudPush();
+        else setBadge('☁ synced ✓');
+        if(!silent&&before!==after) toast('Pulled changes ⇣');
+        return;
+      }
+    }
+    setBadge('☁ synced ✓');
+  }catch(e){ setBadge('☁ cannot reach GitHub',true); }
+}
+function suppressRender(){ suppressSync=true; render(); suppressSync=false; }
+async function cloudPush(){
+  const c=syncCfg();
+  if(!cloudMode||!c.repo||!c.token) return;
+  clearTimeout(pushTimer);
+  setBadge('☁ saving…');
+  try{
+    // read-modify-write: fold in anything the other person pushed since our last sync
+    let sha=null;
+    const r=await fetch(`${ghUrl(c)}?ref=${encodeURIComponent(c.branch||'main')}`,{headers:ghHeaders(c),cache:'no-store'});
+    if(r.ok){
+      const j=await r.json(); sha=j.sha;
+      if(sha!==c.sha){
+        const remote=JSON.parse(b64dec(j.content));
+        if(remote&&Array.isArray(remote.notes)){ state=mergeVaults(state,remote); suppressRender(); }
+      }
+    }else if(r.status!==404){ throw new Error('GET '+r.status); }
+    const body={message:'storyloom vault '+new Date().toISOString(),
+      content:b64enc(JSON.stringify(stripUi(state),null,2)),branch:c.branch||'main'};
+    if(sha) body.sha=sha;
+    const p=await fetch(ghUrl(c),{method:'PUT',headers:ghHeaders(c),body:JSON.stringify(body)});
+    if(!p.ok) throw new Error('PUT '+p.status);
+    const j2=await p.json(); c.sha=j2.content.sha; saveSyncCfg(c);
+    setBadge('☁ synced ✓');
+  }catch(e){
+    setBadge('☁ not saved — retrying',true);
+    clearTimeout(pushTimer); pushTimer=setTimeout(cloudPush,15000);
+  }
+}
+// which tab/filter you're looking at is yours alone — never sync it
+function stripUi(s){ const o=Object.assign({},s); delete o.view; delete o.openSeq; delete o.openWarp; delete o.filters; return o; }
+function startCloudWatch(){
+  setInterval(()=>{ if(document.visibilityState==='visible') cloudPull(true); },45000);
+  window.addEventListener('focus',()=>cloudPull(true));
+  window.addEventListener('beforeunload',e=>{
+    if(pushTimer&&cloudMode){ e.preventDefault(); e.returnValue=''; }
+  });
+}
+
+/* ---- theme ---- */
+const THEMEKEY='storyloom.theme';
+function themePref(){ return localStorage.getItem(THEMEKEY)||'auto'; }
+function applyTheme(){
+  const p=themePref();
+  if(p==='auto') delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme=p;
+  const b=document.getElementById('themeBtn');
+  if(b){ b.textContent = p==='auto'?'◐':(p==='light'?'☀':'☾'); b.title='Theme: '+p+' — click to switch'; }
+}
+function cycleTheme(){
+  const order=['auto','light','dark'];
+  localStorage.setItem(THEMEKEY, order[(order.indexOf(themePref())+1)%3]);
+  applyTheme();
+}
+
+function clearFilters(){ state.filters={q:'',world:'',kind:'',tag:''}; render(); }
+
+render();
+applyTheme();
+initStorage();
+</script>
+</body>
+</html>
