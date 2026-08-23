@@ -18,11 +18,25 @@ page, the vault file, or an export. (Verified: the token cannot reach the publis
 
 ## Step 1 — the app repo (public)
 
-1. On github.com: **New repository** → name `storyloom` → **Public** → Create.
-2. On the empty repo page click **uploading an existing file**.
-3. Drag in `storyloom/index.html` from this project. Commit.
-4. Repo → **Settings** → **Pages** → Source: *Deploy from a branch*, Branch: `main`, folder `/ (root)` → Save.
-5. Wait ~1 minute. Your site is at **`https://<your-username>.github.io/storyloom/`**
+This folder is **already a git repo with the first commit made**, and `vault.json` is
+gitignored so your canon can never leak into the public repo. You only need to push it.
+
+1. On github.com: **New repository** → name `storyloom` → **Public** →
+   **do not** add a README or .gitignore (keep it empty) → Create.
+2. In a terminal in this folder, replacing `<your-username>`:
+
+   ```
+   git remote add origin https://github.com/<your-username>/storyloom.git
+   git push -u origin main
+   ```
+
+   A browser window opens for GitHub sign-in the first time; after that it's remembered.
+3. Repo → **Settings** → **Pages** → Source: *Deploy from a branch*, Branch: `main`, folder `/ (root)` → Save.
+4. Wait ~1 minute. Your site is at **`https://<your-username>.github.io/storyloom/`**
+
+*No terminal?* On the empty repo page click **uploading an existing file** and drag in
+`index.html`, then do step 3. That's enough to serve the app — the other files are
+convenience, not requirements.
 
 ## Step 2 — the vault repo (private)
 
@@ -69,15 +83,14 @@ to GitHub within a couple of seconds. After that, use the Pages URL as home.
 
 ## Updating the app later
 
-When `index.html` changes here, upload it again: repo → the file → pencil icon, or drag
-the new copy in. Pages redeploys in about a minute. Everyone's vault is untouched — the
-app and the data are deliberately separate.
-
-Prefer git? From this folder:
+From this folder, once the remote is set:
 
 ```bash
-git clone https://github.com/<your-username>/storyloom.git site && cp storyloom/index.html site/ && cd site && git add -A && git commit -m "update storyloom" && git push
+git add -A && git commit -m "update storyloom" && git push
 ```
+
+Pages redeploys in about a minute. Everyone's vault is untouched — the app and the data
+live in different repos on purpose, so shipping app changes can never endanger the canon.
 
 ## When you outgrow this
 
