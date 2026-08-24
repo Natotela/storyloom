@@ -35,35 +35,18 @@ shared vault the first time that browser opens the app with the server running.
 
 The ◐/☀/☾ button cycles auto (follows Windows) → light → dark. Per browser.
 
-## Online, off your laptop
+## GitHub sync
 
-See **[DEPLOY.md](DEPLOY.md)** — public repo for the app on GitHub Pages, private repo
-for the vault. When the app runs on a static host (no `server.js`), Sync becomes
-**automatic**: it saves ~2.5s after you stop editing, pulls on focus and every 45s, and
-merges cleanly when both of you edit at once.
+Live at **https://natotela.github.io/storyloom/** — see **[DEPLOY.md](DEPLOY.md)** for the
+per-device setup (private vault repo + fine-grained token, entered once per browser).
 
-## GitHub sync (shared vault + full history)
+On a static host the ⇅ Sync button turns on **automatic** syncing:
 
-The ⇅ Sync button pushes/pulls the vault as `vault.json` in a GitHub repo. Every push
-is a commit, so the entire history of your canon is versioned for free. Setup (once):
-
-1. Create a **private** repo on github.com (e.g. `storyloom-vault`), initialized with a README so the `main` branch exists.
-2. GitHub → Settings → Developer settings → **Fine-grained personal access tokens** →
-   generate one scoped to *only that repo*, permission **Contents: Read & write**.
-3. In Storyloom, open ⇅ Sync, fill in `owner/repo` + token, hit **Push**.
-4. On the partner's machine: same settings, hit **Pull**.
-
-Workflow: **Pull when you sit down, Push when you stand up.** If both of you edited
-since the last sync, Push will refuse ("GitHub has newer changes") — Pull first (it
-replaces the local copy, so Export a backup before pulling if you have unpushed work).
-Each person needs their own token (or share one — it's a two-person studio).
-
-## Hosting the app itself (optional)
-
-The app is a single static file, so GitHub Pages can host it for free: put `index.html`
-in a repo, enable Pages, and both of you open the same URL anywhere. Note Pages repos
-serve their content publicly — host the **app** there, keep the **vault** in the
-separate private repo via Sync.
+- saves ~2.5s after you stop editing (badge: `☁ unsaved…` → `☁ saving…` → `☁ synced ✓`)
+- pulls on window focus and every 45s, so your partner's work simply appears
+- **merges** on every push instead of overwriting, so simultaneous edits are never lost
+- deletions carry across devices and cannot be resurrected by a stale copy
+- every save is a commit, so the vault repo's History is a complete time machine
 
 ## Import from Obsidian / Logseq
 
