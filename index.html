@@ -13,7 +13,7 @@
 <meta name="theme-color" content="#f2f1f7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#12111a" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Frank+Ruhl+Libre:wght@400;600;700&family=Assistant:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#12111a; --bg2:#191826; --panel:#201f30; --panel2:#282740;
@@ -32,7 +32,7 @@
     --k-ref-bg:#333346;--k-ref-ink:#a9a9cf;
     --hero-shade-a:rgba(14,12,24,.55); --hero-shade-b:rgba(14,12,24,.88);
     --cover-shade:rgba(10,8,18,.85);
-    --font-ui:'Inter',system-ui,sans-serif; --font-display:'Fraunces',Georgia,serif;
+    --font-ui:'Inter','Assistant',system-ui,sans-serif; --font-display:'Fraunces','Frank Ruhl Libre',Georgia,serif;
   }
   @media (prefers-color-scheme: light){
     :root:not([data-theme="dark"]){
@@ -162,6 +162,12 @@
   .kind-ref{background:var(--k-ref-bg);color:var(--k-ref-ink)}
   .card-text{white-space:pre-wrap;overflow:hidden;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;font-size:14.5px}
   .card-text.dlg{font-family:var(--font-display);font-style:italic}
+  /* Hebrew has no true italic — a slanted fake reads as a rendering bug */
+  .card-text.dlg:dir(rtl),.beat-text.dlg:dir(rtl){font-style:normal;font-weight:600}
+  /* let each field sit on its own side without flipping the whole app */
+  [dir=auto]{text-align:start}
+  textarea[dir=auto],input[dir=auto]{text-align:start}
+  .card-text:dir(rtl),.beat-text:dir(rtl){line-height:1.65}
   .card-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--ink-faint);margin-top:auto}
   .tag{font-size:11.5px;color:var(--tag-ink);background:var(--tag-bg);padding:2px 8px;border-radius:12px}
   .world-pill{font-size:11.5px;color:var(--world-ink);background:var(--world-bg);padding:2px 8px;border-radius:12px}
@@ -359,11 +365,11 @@ function go(v){ state.view=v; state.openSeq=null; state.openWarp=null; render();
 /* ---- capture box ---- */
 function captureBox(){
   return `<div class="capture">
-    <textarea id="capText" placeholder="Drop a spark — a line of dialogue, an image, half an idea…"></textarea>
+    <textarea id="capText" dir="auto" placeholder="Drop a spark — a line of dialogue, an image, half an idea…"></textarea>
     <div class="capture-row">
       <select id="capKind">${KINDS.map(k=>`<option value="${k}">${k}</option>`).join('')}</select>
-      <input id="capWorld" list="worldList" placeholder="world / project">
-      <input id="capTags" placeholder="tags, comma, separated">
+      <input id="capWorld" dir="auto" list="worldList" placeholder="world / project">
+      <input id="capTags" dir="auto" placeholder="tags, comma, separated">
       <button class="btn" onclick="document.getElementById('capImg').click()" title="Attach a jpg/png image">🖼</button>
       <input type="file" id="capImg" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="pickCapImage(this)">
       <span id="capPreview" class="cap-preview">${pendingImage?`<img src="${pendingImage}" alt=""><button class="btn ghost" onclick="pendingImage=null;showCapPreview()" title="remove image">✕</button>`:''}</span>
@@ -420,7 +426,7 @@ function filterBar(){
   const f=state.filters, ws=worlds();
   TAGIDX=allTags();
   return `<div class="filters">
-    <input type="search" placeholder="Search text…" value="${esc(f.q)}" oninput="setF('q',this.value)">
+    <input type="search" dir="auto" placeholder="Search text…" value="${esc(f.q)}" oninput="setF('q',this.value)">
     <select onchange="setF('world',this.value)"><option value="">all worlds</option>${ws.map(w=>`<option ${f.world===w?'selected':''} value="${esc(w)}">${esc(w)}</option>`).join('')}</select>
     <select onchange="setF('kind',this.value)"><option value="">all kinds</option>${KINDS.map(k=>`<option ${f.kind===k?'selected':''}>${k}</option>`).join('')}</select>
     <div style="display:flex;gap:6px;flex-wrap:wrap">${TAGIDX.map((t,i)=>{
@@ -454,10 +460,10 @@ function noteCard(n){
   return `<div class="card st-${st}" onclick="openNote('${n.id}')">
     ${n.image?`<img class="card-img" src="${n.image}" alt="" loading="lazy">`:''}
     <div class="card-top"><span class="kind kind-${n.kind}">${n.kind}</span><span class="st-chip">${ST_LABEL[st]}</span></div>
-    <div class="card-text ${n.kind==='dialogue'?'dlg':''}">${esc(n.text)}</div>
+    <div class="card-text ${n.kind==='dialogue'?'dlg':''}" dir="auto">${esc(n.text)}</div>
     <div class="card-meta">
-      ${n.world?`<span class="world-pill">${esc(n.world)}</span>`:''}
-      ${(n.tags||[]).map(t=>`<span class="tag">${warpOf(t)?'★ ':''}${esc(t)}</span>`).join('')}
+      ${n.world?`<span class="world-pill" dir="auto">${esc(n.world)}</span>`:''}
+      ${(n.tags||[]).map(t=>`<span class="tag" dir="auto">${warpOf(t)?'★ ':''}${esc(t)}</span>`).join('')}
       ${seqs.length?`<span class="in-seq">⛓ ${seqs.length} seq</span>`:''}
       ${nLinks?`<span class="in-seq">↔ ${nLinks}</span>`:''}
       <span style="margin-left:auto;font-size:11.5px;color:var(--ink-faint)">${fmtDate(n.createdAt)}</span>
@@ -491,7 +497,7 @@ function viewSeqList(){
     <div class="seq-grid">${state.sequences.map(s=>`
       <div class="seq-card" onclick="openSeq('${s.id}')">
         <div class="seq-cover" ${seqBg(s)?`style="background-image:url('${esc(seqBg(s))}')"`:''}>
-          <div class="seq-cover-shade"><div class="seq-title">${esc(s.title)||'Untitled'}</div></div>
+          <div class="seq-cover-shade"><div class="seq-title" dir="auto">${esc(s.title)||'Untitled'}</div></div>
         </div>
         <div class="seq-body"><span>${esc(s.description||'')}</span><span style="white-space:nowrap">${s.beats.length} beats</span></div>
       </div>`).join('')}</div>
@@ -510,8 +516,8 @@ function viewSeqDetail(){
   <div style="height:12px"></div>
   <div class="seq-hero" ${seqBg(s)?`style="background-image:url('${esc(seqBg(s))}')"`:''}>
     <div class="seq-hero-inner">
-      <input class="title" placeholder="Sequence title…" value="${esc(s.title)}" onchange="updSeq('${s.id}','title',this.value)">
-      <textarea placeholder="What is this weave? (logline, intent, mood…)" onchange="updSeq('${s.id}','description',this.value)">${esc(s.description)}</textarea>
+      <input class="title" dir="auto" placeholder="Sequence title…" value="${esc(s.title)}" onchange="updSeq('${s.id}','title',this.value)">
+      <textarea dir="auto" placeholder="What is this weave? (logline, intent, mood…)" onchange="updSeq('${s.id}','description',this.value)">${esc(s.description)}</textarea>
       <div class="seq-hero-row">
         <input placeholder="Background image URL (or upload below)" value="${esc(s.bgUrl)}" onchange="updSeq('${s.id}','bgUrl',this.value)">
         <input placeholder="world / project" list="worldList" style="max-width:180px" value="${esc(s.world||'')}" onchange="updSeq('${s.id}','world',this.value)">
@@ -540,7 +546,7 @@ function beatRow(s,b,i){
     <div class="beat-main">
       <span class="kind kind-${n.kind}" style="margin-bottom:6px;display:inline-block">${n.kind}</span>
       ${n.image?`<img class="beat-img" src="${n.image}" alt="" loading="lazy" onclick="openNote('${n.id}')">`:''}
-      <div class="beat-text ${n.kind==='dialogue'?'dlg':''}" onclick="openNote('${n.id}')" title="open note">${esc(n.text)}</div>
+      <div class="beat-text ${n.kind==='dialogue'?'dlg':''}" dir="auto" onclick="openNote('${n.id}')" title="open note">${esc(n.text)}</div>
     </div>
     <div class="beat-time"><span class="flabel">moment</span>
       <input placeholder="e.g. Dawn, Day 3" value="${esc(b.time||'')}" onchange="updBeat('${s.id}',${i},this.value)"></div>
@@ -593,9 +599,9 @@ function viewWarpList(){
       return `<div class="warp-card" onclick="openWarp('${w.id}')">
         ${w.image?`<div class="warp-cover" style="background-image:url('${esc(w.image)}')"></div>`:''}
         <div class="warp-body">
-          <div class="warp-title">★ ${esc(w.title||w.tag)}</div>
+          <div class="warp-title" dir="auto">★ ${esc(w.title||w.tag)}</div>
           <div class="warp-tag">#${esc(w.tag)}</div>
-          ${w.description?`<p class="warp-desc">${esc(w.description)}</p>`:''}
+          ${w.description?`<p class="warp-desc" dir="auto">${esc(w.description)}</p>`:''}
           <div class="warp-meta">${c} thread${c===1?'':'s'}${(w.refs||[]).length?` · ${w.refs.length} link${w.refs.length===1?'':'s'}`:''}</div>
         </div></div>`;
     }).join('')}</div>`
@@ -610,7 +616,7 @@ function newWarp(){
     <div class="frow"><div style="flex:2"><input id="wpNew" list="wpTags" placeholder="tag name…" autofocus>
       <datalist id="wpTags">${tags.map(t=>`<option value="${esc(t)}">`).join('')}</datalist></div>
       <button class="btn primary" style="flex:0" onclick="createWarpFromInput()">Create</button></div>
-    ${tags.length?`<div class="picker">${tags.map((t,i)=>`<div class="pick-row" onclick="createWarp(${JSON.stringify(t).replace(/"/g,'&quot;')})">${esc(t)} <span style="color:var(--ink-faint);font-size:12.5px">· ${tagCount(t)} thread${tagCount(t)===1?'':'s'}</span></div>`).join('')}</div>`:''}
+    ${tags.length?`<div class="picker">${tags.map((t,i)=>`<div class="pick-row" dir="auto" onclick="createWarp(${JSON.stringify(t).replace(/"/g,'&quot;')})">${esc(t)} <span style="color:var(--ink-faint);font-size:12.5px">· ${tagCount(t)} thread${tagCount(t)===1?'':'s'}</span></div>`).join('')}</div>`:''}
   </div>`;
   document.body.appendChild(div);
   setTimeout(()=>{ const el=document.getElementById('wpNew'); if(el) el.focus(); },30);
@@ -634,8 +640,8 @@ function viewWarpDetail(){
   <div class="seq-hero" ${w.image?`style="background-image:url('${esc(w.image)}')"`:''}>
     <div class="seq-hero-inner">
       <div style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:6px">★ ${WARP} · #${esc(w.tag)}</div>
-      <input class="title" placeholder="Title…" value="${esc(w.title||'')}" onchange="updWarp('${w.id}','title',this.value)">
-      <textarea placeholder="What does this thread mean to the work? Why does it keep coming back?" onchange="updWarp('${w.id}','description',this.value)">${esc(w.description||'')}</textarea>
+      <input class="title" dir="auto" placeholder="Title…" value="${esc(w.title||'')}" onchange="updWarp('${w.id}','title',this.value)">
+      <textarea dir="auto" placeholder="What does this thread mean to the work? Why does it keep coming back?" onchange="updWarp('${w.id}','description',this.value)">${esc(w.description||'')}</textarea>
       <div class="seq-hero-row">
         <button class="btn" style="flex:0" onclick="document.getElementById('warpImg').click()">🖼 ${w.image?'Replace image':'Upload image'}</button>
         ${w.image?`<button class="btn ghost" style="flex:0" onclick="removeWarpImage('${w.id}')">Remove image</button>`:''}
@@ -653,7 +659,7 @@ function viewWarpDetail(){
       <button onclick="rmWarpRef('${w.id}',${i})" title="remove">✕</button></div>`).join('')
     ||`<span style="font-size:13.5px;color:var(--ink-faint)">Nothing pinned yet — add reference art, a playlist, a doc.</span>`}</div>
   <div class="frow" style="margin-top:10px">
-    <input id="wrLabel" placeholder="label (e.g. mood board)" style="flex:1">
+    <input id="wrLabel" dir="auto" placeholder="label (e.g. mood board)" style="flex:1">
     <input id="wrUrl" placeholder="https://…" style="flex:2">
     <button class="btn" style="flex:0" onclick="addWarpRef('${w.id}')">+ Pin link</button>
   </div>
@@ -671,7 +677,7 @@ function viewWarpDetail(){
   ${seqs.length?`<div class="section-h" style="margin-top:34px"><h2>Appears in these weaves</h2></div>
     <div class="links-list">${seqs.map(s=>`<div class="link-row">
       <span class="lbl">⛓ sequence</span>
-      <span class="txt" onclick="openSeq('${s.id}')">${esc(s.title||'Untitled')}</span></div>`).join('')}</div>`:''}`;
+      <span class="txt" dir="auto" onclick="openSeq('${s.id}')">${esc(s.title||'Untitled')}</span></div>`).join('')}</div>`:''}`;
 }
 function updWarp(id,k,v){ const w=warpById(id); if(w){ w[k]=v.trim(); w.updatedAt=Date.now(); render(); } }
 function warpImage(id,input){
@@ -709,20 +715,20 @@ function openNote(id){
       ${n.image?`<button class="btn ghost" onclick="removeImage('${n.id}')">Remove image</button>`:''}
       <input type="file" id="nImg" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="modalImage('${n.id}',this)">
     </div>
-    <textarea id="nText">${esc(n.text)}</textarea>
+    <textarea id="nText" dir="auto">${esc(n.text)}</textarea>
     <div style="height:10px"></div>
     <div class="frow">
       <div><span class="flabel">kind</span><select id="nKind">${KINDS.map(k=>`<option ${n.kind===k?'selected':''}>${k}</option>`).join('')}</select></div>
-      <div><span class="flabel">world</span><input id="nWorld" list="worldList" value="${esc(n.world||'')}"></div>
+      <div><span class="flabel">world</span><input id="nWorld" dir="auto" list="worldList" value="${esc(n.world||'')}"></div>
       <div><span class="flabel">status</span><select id="nStatus"><option ${n.status==='inbox'?'selected':''}>inbox</option><option ${n.status==='sorted'?'selected':''}>sorted</option></select></div>
     </div>
-    <div class="frow"><div style="flex:2"><span class="flabel">tags (comma separated)</span><input id="nTags" value="${esc((n.tags||[]).join(', '))}"></div></div>
+    <div class="frow"><div style="flex:2"><span class="flabel">tags (comma separated)</span><input id="nTags" dir="auto" value="${esc((n.tags||[]).join(', '))}"></div></div>
     <div class="frow"><div style="flex:2"><span class="flabel">reference links (image / doc / song URLs, comma separated)</span><input id="nRefs" value="${esc((n.refs||[]).join(', '))}"></div></div>
     ${n.refs&&n.refs.length?`<div class="refs-list">${n.refs.map(r=>`<a href="${esc(r)}" target="_blank" rel="noopener">${esc(r)}</a>`).join('<br>')}</div>`:''}
     <div style="margin-top:14px"><span class="flabel">linked threads</span>
       <div class="links-list">${links.map(l=>{
         const otherId=l.from===id?l.to:l.from, o=byId(otherId);
-        return o?`<div class="link-row"><span class="lbl">${esc(l.label||'↔')}</span><span class="txt" onclick="closeModal();openNote('${o.id}')">${esc(o.text.slice(0,90))}</span><button onclick="unlink('${l.from}','${l.to}');openNote('${id}')" title="unlink">✕</button></div>`:'';
+        return o?`<div class="link-row"><span class="lbl">${esc(l.label||'↔')}</span><span class="txt" dir="auto" onclick="closeModal();openNote('${o.id}')">${esc(o.text.slice(0,90))}</span><button onclick="unlink('${l.from}','${l.to}');openNote('${id}')" title="unlink">✕</button></div>`:'';
       }).join('')||'<span style="font-size:13px;color:var(--ink-faint)">none yet</span>'}</div>
       <div style="margin-top:8px"><input id="linkSearch" placeholder="Search a note to link…" oninput="linkSuggest('${id}',this.value)" style="width:100%"><div id="linkSug" class="picker"></div></div>
     </div>
@@ -793,7 +799,7 @@ function pickSuggest(seqId,q){
   const used=new Set(s.beats.map(b=>b.noteId));
   const hits=state.notes.filter(n=>!used.has(n.id)&&(!q.trim()||n.text.toLowerCase().includes(q.toLowerCase()))).slice(0,20);
   document.getElementById('pickList').innerHTML =
-    hits.map(h=>`<div class="pick-row" onclick="addBeat('${seqId}','${h.id}')"><span class="kind kind-${h.kind}">${h.kind}</span> ${esc(h.text.slice(0,110))}</div>`).join('')
+    hits.map(h=>`<div class="pick-row" dir="auto" onclick="addBeat('${seqId}','${h.id}')"><span class="kind kind-${h.kind}">${h.kind}</span> ${esc(h.text.slice(0,110))}</div>`).join('')
     || '<div class="empty" style="padding:20px">No unused notes match.</div>';
 }
 function addBeat(seqId,noteId){

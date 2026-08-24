@@ -98,3 +98,22 @@ vault folder). Each file becomes one inbox note titled by its filename. It under
   spelling used is kept as the display form, so slips can't fragment your canon.
 
 Roadmap (comic / webapp / 3D world paths): see the published Storyloom Roadmap artifact.
+
+## Hebrew and mixed-language writing
+
+Write in Hebrew, English, or both — including inside a single note. There is no language
+setting and no separate version, because direction is decided **per field** from what you
+actually typed (`dir="auto"`):
+
+- A Hebrew note renders right-to-left, an English one left-to-right, side by side in the
+  same Library grid.
+- Capture boxes, titles, descriptions and tag fields flip live as you type.
+- Tags, worlds, search and import all work in Hebrew.
+- Hebrew typography is real, not fallback: **Frank Ruhl Libre** pairs with Fraunces for
+  display text and **Assistant** with Inter for body text. Browsers pick the face per
+  glyph, so a mixed sentence uses the right font for each script automatically.
+- Dialogue notes are italic in Latin script only — Hebrew has no true italic, and the
+  slanted fake browsers synthesise reads as a rendering bug, so it is turned off for RTL.
+
+The interface chrome (nav, buttons) stays left-to-right on purpose: the vault holds both
+languages at once, so flipping the whole app would be wrong half the time.
