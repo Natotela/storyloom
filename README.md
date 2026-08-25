@@ -98,8 +98,7 @@ actually typed (`dir="auto"`):
 - Dialogue notes are italic in Latin script only — Hebrew has no true italic, and the
   slanted fake browsers synthesise reads as a rendering bug, so it is turned off for RTL.
 
-The interface chrome (nav, buttons) stays left-to-right on purpose: the vault holds both
-languages at once, so flipping the whole app would be wrong half the time.
+This works regardless of which language the interface is set to — see below.
 
 ## Interface language (English / עברית)
 
