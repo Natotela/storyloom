@@ -100,3 +100,42 @@ actually typed (`dir="auto"`):
 
 The interface chrome (nav, buttons) stays left-to-right on purpose: the vault holds both
 languages at once, so flipping the whole app would be wrong half the time.
+
+## Interface language (English / עברית)
+
+The **א / A** button in the header switches the whole interface between English and
+Hebrew. In Hebrew the layout mirrors properly (`dir=rtl`): the timeline rail moves to the
+right, card spines and paddings flip, arrows reverse.
+
+Note *content* is unaffected — it keeps deciding its own direction from what you typed,
+so an English note still reads left-to-right inside the Hebrew interface, and vice versa.
+The setting is per device, so one of you can work in Hebrew while the other works in
+English **on the same vault**.
+
+Adding or fixing a translation: edit the `I18N.he` dictionary near the top of the script.
+English strings are the keys, so any key without a translation simply falls back to
+English rather than breaking.
+
+A note on one term: *Warp* is **ציר** in Hebrew, not the literal weaving term שתי — which
+is spelled identically to "two" and would read as a typo.
+
+## Is there a database?
+
+No, and there cannot be one on GitHub Pages: Pages is **static hosting**, it only serves
+files and cannot run server-side code. So there is nowhere for a database engine, or even
+a query endpoint, to live.
+
+Instead the GitHub repo itself is the store: the vault is one JSON document, read and
+written over the GitHub API. For two people this buys a lot for free — hosting, auth,
+versioning of every save, and no server to maintain. What it costs:
+
+- **Whole-file reads and writes.** There are no queries and no partial updates; every save
+  uploads the entire vault. Fine at 250KB, wasteful at 10MB.
+- **Size ceiling.** Images are stored inside the JSON as base64, so the file grows fast.
+  The app handles vaults over 1MB (past that GitHub stops inlining file content and the
+  raw endpoint is required), but this is the limit that will eventually force a move.
+- **No per-user accounts.** Whoever holds the token holds everything.
+
+The next step when those bite is Cloudflare Pages + a Worker + D1 (a real SQL database)
+and R2 for images — still free at this scale, but with actual queries, per-tenant sign-in,
+and images stored as files instead of inflating every commit.
