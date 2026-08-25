@@ -1,6 +1,6 @@
 # Storyloom ✦
 
-A two-person creative vault: IC drops sparks (dialogue, images, half-ideas) into the Inbox;
+A two-person creative vault: IC drops sparks (dialogue, images, half-ideas) into Ideas;
 the Weaver tags, sorts, links, and knits them into Sequences with timelines and mood images.
 
 ## Run it
@@ -71,12 +71,15 @@ vault folder). Each file becomes one inbox note titled by its filename. It under
 - **Sequence (weave)** — an ordered set of notes ("beats"), each stamped with a *moment*
   label, plus a description and a background image. Drag or arrow-key beats to reorder.
 - **Link** — a labeled relation between two notes ("echoes", "contradicts", "same scene").
-- **Warp** — a tag raised to a hub page of its own (the 4th tab). In weaving, warp threads
-  are the ones held taut that every other thread crosses; a Warp is a recurring motif,
-  character, or question. Each has a title, description, image, and pinned links, and it
-  automatically gathers every note carrying that tag, those notes' reference URLs, and the
-  sequences they appear in. Star a tag (☆ on any tag chip) to make one.
-  To rename the concept, change the `WARP`/`WARPS` constants in `index.html`.
+- **Tag pages** — the 4th tab. Every tag in use gets a page of its own: a title, free
+  text you write like an idea, an image, and pinned links. Pages are created lazily, the
+  moment you first put something on one.
+- **Tag hierarchy** — a tag can sit under a parent tag (sub-characters under a character).
+  The Tags tab shows the tree; a parent page also surfaces the notes belonging to its
+  sub-tags under "From sub-tags". A tag cannot be nested under itself or its own
+  descendant, so the tree can never loop.
+- **Pinned tags** — the ☆ on a tag page marks it important; pinned tags appear as chips at
+  the top of the Tags tab and get a ★ wherever that tag is shown.
 - **Tags are case-insensitive** — "Opening" and "opening" are the same tag; the first
   spelling used is kept as the display form, so slips can't fragment your canon.
 
@@ -115,8 +118,7 @@ Adding or fixing a translation: edit the `I18N.he` dictionary near the top of th
 English strings are the keys, so any key without a translation simply falls back to
 English rather than breaking.
 
-A note on one term: *Warp* is **שתי** in Hebrew — the actual weaving word. Unvocalized it
-is spelled the same as "two", and that double reading is deliberate (IC’s call).
+The Inbox is called **Ideas** / רעיונות, and the fourth tab is **Tags** / תגיות.
 
 ## Is there a database?
 

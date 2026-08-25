@@ -115,6 +115,18 @@
   .chip-star.on{color:var(--accent)}
   .chip.on .chip-star{color:var(--chip-on-ink)}
 
+  .tag-tree{display:flex;flex-direction:column;gap:6px}
+  .tag-row{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);
+    border-inline-start:4px solid var(--accent);border-radius:10px;padding:11px 14px;cursor:pointer;
+    transition:transform .1s,border-color .15s}
+  .tag-row:hover{transform:translateY(-1px);border-color:var(--accent)}
+  .tag-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none}
+  .tag-name{font-family:var(--font-display);font-size:17px;font-weight:600}
+  .tag-hash{font-size:12px;color:var(--accent)}
+  .tag-stats{margin-inline-start:auto;font-size:12px;color:var(--ink-faint);white-space:nowrap}
+  .tag-crumb{font-size:12.5px;color:var(--ink-dim);margin-bottom:6px}
+  .tag-crumb span{cursor:pointer;color:var(--accent3)}
+  .tag-crumb span:hover{text-decoration:underline}
   .warp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
   .warp-card{background:var(--panel);border:1.5px solid var(--line);border-inline-start:5px solid var(--accent);
     border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:transform .1s,box-shadow .15s}
@@ -264,11 +276,13 @@ let state = load();
 function load(){
   try{
     const raw = localStorage.getItem(KEY);
-    if(raw){ const s = JSON.parse(raw); return Object.assign(blank(), s); }
+    if(raw){ const s = JSON.parse(raw); return Object.assign(blank(), migrate(s)); }
   }catch(e){ console.error('load failed',e); }
   freshVault=true; return blank();
 }
-function blank(){ return {notes:[],sequences:[],links:[],warps:[],deleted:{},view:'inbox',openSeq:null,openWarp:null,filters:{q:'',world:'',kind:'',tag:''}}; }
+// tag pages were called Warps before they gained hierarchy and free text
+function migrate(v){ if(v && v.warps && !v.tags){ v.tags=v.warps; delete v.warps; } return v; }
+function blank(){ return {notes:[],sequences:[],links:[],tags:[],deleted:{},view:'inbox',openSeq:null,openTag:null,filters:{q:'',world:'',kind:'',tag:''}}; }
 // A deletion has to be a fact that travels, not just an absence — otherwise the other
 // device still has the item and the merge hands it straight back. tomb() records when
 // something died; the merge then drops it everywhere.
@@ -297,7 +311,7 @@ function seed(){
   s.notes=[n1,n2,n3,n4];
   s.sequences=[{id:uid(),title:'Saltmere — Act I sketch',description:'First weave: the dark lighthouse cold-open into the cartographer intro.',bgUrl:'',world:'Saltmere',beats:[{noteId:n2.id,time:'Night 0 — cold open'},{noteId:n1.id,time:'Night 0 — first line'}],createdAt:Date.now()}];
   s.links=[{from:n3.id,to:n4.id,label:'structure hangs on her'}];
-  s.warps=[{id:uid(),tag:'opening',title:'Opening',description:'Everything that could serve as a first impression of the world. The one page a stranger judges us by.',image:null,refs:[],createdAt:Date.now(),updatedAt:Date.now()}];
+  s.tags=[{id:uid(),tag:'opening',parent:'',starred:false,title:'Opening',description:'Everything that could serve as a first impression of the world. The one page a stranger judges us by.',image:null,refs:[],createdAt:Date.now(),updatedAt:Date.now()}];
   return s;
 }
 
@@ -321,8 +335,32 @@ function canonTag(t){
 }
 function notesWithTag(tag){ const k=norm(tag); return state.notes.filter(n=>(n.tags||[]).some(t=>norm(t)===k)); }
 function tagCount(tag){ return notesWithTag(tag).length; }
-function warpOf(tag){ const k=norm(tag); return (state.warps||[]).find(w=>norm(w.tag)===k); }
-function warpById(id){ return (state.warps||[]).find(w=>w.id===id); }
+function tagRec(tag){ const k=norm(tag); return (state.tags||[]).find(w=>norm(w.tag)===k); }
+function tagRecById(id){ return (state.tags||[]).find(w=>w.id===id); }
+// a page is created only when there is something to save on it
+function ensureTagRec(tag){
+  let r=tagRec(tag);
+  if(!r){ r={id:uid(),tag:canonTag(tag),title:'',description:'',image:null,refs:[],parent:'',starred:false,createdAt:Date.now(),updatedAt:Date.now()};
+    state.tags.push(r); }
+  return r;
+}
+// every tag in use, plus any that exist only as a page
+function allTagNames(){
+  const m=new Map();
+  allTags().forEach(t=>m.set(norm(t),t));
+  (state.tags||[]).forEach(r=>{ if(!m.has(norm(r.tag))) m.set(norm(r.tag),r.tag); });
+  return [...m.values()].sort((a,b)=>a.localeCompare(b));
+}
+function parentOf(tag){ const r=tagRec(tag); return r&&r.parent?r.parent:''; }
+function childTags(tag){ const k=norm(tag); return allTagNames().filter(x=>norm(parentOf(x))===k); }
+function descendantTags(tag,seen){
+  seen=seen||new Set(); const out=[];
+  childTags(tag).forEach(c=>{ const k=norm(c); if(seen.has(k)) return; seen.add(k); out.push(c, ...descendantTags(c,seen)); });
+  return out;
+}
+function rootTags(){ return allTagNames().filter(x=>{ const p=parentOf(x); return !p || !allTagNames().some(y=>norm(y)===norm(p)); }); }
+function tagDepth(tag,seen){ const p=parentOf(tag); if(!p) return 0; seen=seen||new Set(); const k=norm(tag);
+  if(seen.has(k)) return 0; seen.add(k); return 1+tagDepth(p,seen); }
 function seqsOf(noteId){ return state.sequences.filter(s=>s.beats.some(b=>b.noteId===noteId)); }
 function linksOf(noteId){ return state.links.filter(l=>l.from===noteId||l.to===noteId); }
 function parseTags(str){
@@ -346,15 +384,13 @@ function render(){
   if(state.view==='inbox') m.innerHTML=viewInbox();
   else if(state.view==='library') m.innerHTML=viewLibrary();
   else if(state.view==='sequences') m.innerHTML = state.openSeq ? viewSeqDetail() : viewSeqList();
-  else if(state.view==='warps') m.innerHTML = state.openWarp ? viewWarpDetail() : viewWarpList();
+  else if(state.view==='tags') m.innerHTML = state.openTag ? viewTagDetail() : viewTagList();
   bindDrag();
 }
 const I18N={he:{
  "Inbox": "נכנס",
  "Library": "ספרייה",
  "Sequences": "רצפים",
- "Warp": "שתי",
- "Warps": "שתי",
  "Export": "ייצוא",
  "Import": "ייבוא",
  "Import .md": "ייבוא ‎.md",
@@ -374,7 +410,6 @@ const I18N={he:{
  "Drop a spark — a line of dialogue, an image, half an idea…": "הפילו ניצוץ — שורת דיאלוג, תמונה, חצי רעיון…",
  "world / project": "עולם / פרויקט",
  "tags, comma, separated": "תגיות, מופרדות, בפסיק",
- "Add to Inbox": "הוספה לנכנס",
  "Attach a jpg/png image": "צירוף תמונה jpg/png",
  "Ctrl+Enter adds instantly. Capture fast, sort later — that's the whole deal.": "‎Ctrl+Enter מוסיף מיד. לתפוס מהר, למיין אחר כך — זה כל הרעיון.",
  "Spark saved ✦": "הניצוץ נשמר ✦",
@@ -387,14 +422,14 @@ const I18N={he:{
  "all kinds": "כל הסוגים",
  "Clear filters": "ניקוי סינון",
  "Nothing matches the current filters.": "שום דבר לא תואם את הסינון הנוכחי.",
- "Inbox zero.": "התיבה ריקה.",
+ "Inbox zero.": "אין רעיונות ממתינים.",
  "Every spark has been sorted. Drop new ones above.": "כל הניצוצות מוינו. הפילו חדשים למעלה.",
  "Library — every thread": "ספרייה — כל החוטים",
  "notes": "הערות",
- "still in inbox": "עדיין בנכנס",
+ "still in inbox": "ממתין ברעיונות",
  "sorted": "ממוין",
  "woven into a sequence": "שזור ברצף",
- "inbox": "נכנס",
+ "inbox": "רעיון",
  "in sequence": "ברצף",
  "status": "סטטוס",
  "Sequences — the weaves": "רצפים — המארגים",
@@ -426,9 +461,6 @@ const I18N={he:{
  "Upload image": "העלאת תמונה",
  "Remove image": "הסרת תמונה",
  "Delete this sequence? (Notes stay in the library.)": "למחוק את הרצף? (ההערות נשארות בספרייה.)",
- "the threads everything crosses": "החוטים שהכול חוצה",
- "No Warps yet.": "אין עדיין חוטי שתי.",
- "Star a tag anywhere you see one (☆ on the tag chips), or create one here.": "סמנו תגית בכוכב בכל מקום שתראו (☆ על תווית התגית), או צרו כאן.",
  "tag name…": "שם תגית…",
  "Create": "יצירה",
  "Name it first": "קודם תנו שם",
@@ -503,17 +535,34 @@ const I18N={he:{
  "Assign the imported notes to a world/project? (leave blank for none)": "לשייך את ההערות המיובאות לעולם/פרויקט? (השאירו ריק לאף אחד)",
  "That file does not look like a Storyloom backup.": "הקובץ הזה לא נראה כמו גיבוי של Storyloom.",
  "Label for this relation? (optional — e.g. \"same scene\", \"contradicts\", \"echoes\")": "תווית לקשר הזה? (רשות — למשל \"אותה סצנה\", \"סותר\", \"מהדהד\")",
- "Pick an existing tag to raise, or type a new name.": "בחרו תגית קיימת להעלאה, או הקלידו שם חדש.",
  "Nothing pinned yet — add reference art, a playlist, a doc.": "עדיין לא ננעץ דבר — הוסיפו רפרנס, פלייליסט, מסמך.",
- "New Warp": "שתי חדש",
  "Image set 🖼": "התמונה נקבעה 🖼",
- "A Warp is a tag raised to a place of its own": "חוט שתי הוא תגית שהועלתה למקום משלה: מוטיב חוזר, דמות או שאלה, עם מקום להערות ולקישורים משלה, שאוסף כל חוט שנושא אותה.",
  "← All sequences": "→ כל הרצפים",
- "← All Warps": "→ כל חוטי השתי",
- "Threads carrying": "חוטים הנושאים",
  "No notes carry this tag yet.": "אף הערה לא נושאת את התגית הזו עדיין.",
  "Tag a note": "תייגו הערה",
- "and it appears here automatically.": "והיא תופיע כאן אוטומטית."
+ "and it appears here automatically.": "והיא תופיע כאן אוטומטית.",
+ "Ideas": "רעיונות",
+ "Tags": "תגיות",
+ "Tag": "תגית",
+ "New tag": "תגית חדשה",
+ "No tags yet.": "אין עדיין תגיות.",
+ "Tag a note and it appears here.": "תייגו הערה והיא תופיע כאן.",
+ "Every tag has a page of its own — write on it, give it an image, pin links, and nest tags under a parent (sub-characters under a character).": "לכל תגית יש דף משלה — כתבו בו, הוסיפו תמונה, נעצו קישורים, וקננו תגיות תחת תגית־אם (תת־דמויות תחת דמות).",
+ "← All tags": "→ כל התגיות",
+ "Sub-tags": "תת־תגיות",
+ "sub-tags": "תת־תגיות",
+ "From sub-tags": "מתת־התגיות",
+ "parent tag": "תגית־אם",
+ "— none (top level) —": "— ללא (רמה עליונה) —",
+ "Pin": "נעיצה",
+ "note": "הערה",
+ "Notes tagged": "הערות מתויגות",
+ "Write about this tag — who they are, what it means, anything you would put in an idea.": "כתבו על התגית הזו — מי זה, מה זה אומר, כל מה שהייתם כותבים ברעיון.",
+ "Delete page": "מחיקת הדף",
+ "Delete this tag page?": "למחוק את דף התגית?",
+ "The tag itself and every note using it stay — only this page, its text and pinned links go.": "התגית עצמה וכל ההערות שמשתמשות בה נשארות — רק הדף הזה, הטקסט שלו והקישורים הנעוצים נמחקים.",
+ "open this tag page": "פתיחת דף התגית",
+ "Add idea": "הוספת רעיון"
 }};
 /* ---- interface language ---------------------------------------------------
    Note *content* always decides its own direction via dir="auto" (so an English
@@ -543,19 +592,19 @@ function toggleLang(){
   applyLang(); render();
 }
 // Rename the concept here — nav label and page headings follow.
-Object.defineProperty(window,'WARP',{get:()=>t('Warp')});
-Object.defineProperty(window,'WARPS',{get:()=>t('Warps')});
+// t() is shadowed inside some map callbacks that bind their own `t`; t2 is the safe alias
+const t2=s=>t(s);
 function renderNav(){
   const inboxCount = state.notes.filter(n=>n.status==='inbox').length;
   document.getElementById('nav').innerHTML = [
-    ['inbox',`${t('Inbox')}${inboxCount?`<span class="count">${inboxCount}</span>`:''}`],
+    ['inbox',`${t('Ideas')}${inboxCount?`<span class="count">${inboxCount}</span>`:''}`],
     ['library',t('Library')],
     ['sequences',t('Sequences')],
-    ['warps',WARPS],
+    ['tags',t('Tags')],
   ].map(([v,label])=>`<button class="${state.view===v?'active':''}" onclick="go('${v}')">${label}</button>`).join('');
 }
 // Clicking a top-level tab always returns to that section's root listing.
-function go(v){ state.view=v; state.openSeq=null; state.openWarp=null; render(); }
+function go(v){ state.view=v; state.openSeq=null; state.openTag=null; render(); }
 
 /* ---- capture box ---- */
 function captureBox(){
@@ -568,7 +617,7 @@ function captureBox(){
       <button class="btn" onclick="document.getElementById('capImg').click()" title="${t('Attach a jpg/png image')}">🖼</button>
       <input type="file" id="capImg" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="pickCapImage(this)">
       <span id="capPreview" class="cap-preview">${pendingImage?`<img src="${pendingImage}" alt=""><button class="btn ghost" onclick="pendingImage=null;showCapPreview()" title="${t('remove image')}">✕</button>`:''}</span>
-      <button class="btn primary" onclick="capture()">${t('Add to Inbox')}</button>
+      <button class="btn primary" onclick="capture()">${t('Add idea')}</button>
     </div>
     <div class="hint">${t("Ctrl+Enter adds instantly. Capture fast, sort later — that's the whole deal.")}</div>
   </div>`;
@@ -625,18 +674,13 @@ function filterBar(){
     <select onchange="setF('world',this.value)"><option value="">${t('all worlds')}</option>${ws.map(w=>`<option ${f.world===w?'selected':''} value="${esc(w)}">${esc(w)}</option>`).join('')}</select>
     <select onchange="setF('kind',this.value)"><option value="">${t('all kinds')}</option>${KINDS.map(k=>`<option value="${k}" ${f.kind===k?'selected':''}>${t(k)}</option>`).join('')}</select>
     <div style="display:flex;gap:6px;flex-wrap:wrap">${TAGIDX.map((t,i)=>{
-      const on=norm(f.tag)===norm(t), isW=!!warpOf(t);
-      return `<span class="chip ${on?'on':''}"><span onclick="toggleTagFilter(${i})">${esc(t)}</span><button class="chip-star ${isW?'on':''}" onclick="event.stopPropagation();toggleWarp(${i})" title="${isW?`open this ${WARP}`:`make this tag a ${WARP}`}">${isW?'★':'☆'}</button></span>`;
+      const on=norm(f.tag)===norm(t), r=tagRec(t), pinned=!!(r&&r.starred);
+      return `<span class="chip ${on?'on':''}"><span onclick="toggleTagFilter(${i})">${esc(t)}</span><button class="chip-star ${pinned?'on':''}" onclick="event.stopPropagation();openTagByName(${i})" title="${t2('open this tag page')}">${pinned?'★':'☆'}</button></span>`;
     }).join('')}</div>
   </div>`;
 }
 function toggleTagFilter(i){ const t=TAGIDX[i]; setF('tag', norm(state.filters.tag)===norm(t)?'':t); }
-function toggleWarp(i){
-  const t=TAGIDX[i], ex=warpOf(t);
-  if(ex){ openWarp(ex.id); return; }
-  state.warps.unshift({id:uid(),tag:t,title:t,description:'',image:null,refs:[],createdAt:Date.now(),updatedAt:Date.now()});
-  render(); toast(`★ "${t}" is now a ${WARP}`);
-}
+function openTagByName(i){ openTagPage(TAGIDX[i]); }
 function setF(k,v){ state.filters[k]=v; render(); if(k==='q'){ const el=document.querySelector('input[type=search]'); if(el){el.focus(); el.setSelectionRange(el.value.length,el.value.length);} } }
 function applyFilters(notes){
   const f=state.filters;
@@ -659,7 +703,7 @@ function noteCard(n){
     <div class="card-text ${n.kind==='dialogue'?'dlg':''}" dir="auto">${esc(n.text)}</div>
     <div class="card-meta">
       ${n.world?`<span class="world-pill" dir="auto">${esc(n.world)}</span>`:''}
-      ${(n.tags||[]).map(t=>`<span class="tag" dir="auto">${warpOf(t)?'★ ':''}${esc(t)}</span>`).join('')}
+      ${(n.tags||[]).map(x=>{const r=tagRec(x);return `<span class="tag" dir="auto">${r&&r.starred?'★ ':''}${esc(x)}</span>`;}).join('')}
       ${seqs.length?`<span class="in-seq">⛓ ${seqs.length} seq</span>`:''}
       ${nLinks?`<span class="in-seq">↔ ${nLinks}</span>`:''}
       <span style="margin-inline-start:auto;font-size:11.5px;color:var(--ink-faint)">${fmtDate(n.createdAt)}</span>
@@ -783,118 +827,161 @@ function bindDrag(){
   });
 }
 
-/* ---- warps: a tag promoted to a hub page ---- */
-function openWarp(id){ state.openWarp=id; state.view='warps'; render(); }
-function viewWarpList(){
-  const ws=state.warps||[];
-  return `<div class="section-h"><h2>${WARPS} — ${t('the threads everything crosses')}</h2>
-      <button class="btn primary" onclick="newWarp()">+ ${t('New Warp')}</button></div>
-    <p style="color:var(--ink-dim);font-size:14px;margin-bottom:18px;max-width:66ch">${lang()==='he'?t('A Warp is a tag raised to a place of its own'):`A ${WARP} is a tag raised to a place of its own: a recurring motif, character, or question, with room for its own notes and links, gathering every thread that carries it.`}</p>
-    ${ws.length?`<div class="warp-grid">${ws.map(w=>{
-      const c=tagCount(w.tag);
-      return `<div class="warp-card" onclick="openWarp('${w.id}')">
-        ${w.image?`<div class="warp-cover" style="background-image:url('${esc(w.image)}')"></div>`:''}
-        <div class="warp-body">
-          <div class="warp-title" dir="auto">★ ${esc(w.title||w.tag)}</div>
-          <div class="warp-tag">#${esc(w.tag)}</div>
-          ${w.description?`<p class="warp-desc" dir="auto">${esc(w.description)}</p>`:''}
-          <div class="warp-meta">${c} ${c===1?t('thread'):t('threads')}${(w.refs||[]).length?` · ${w.refs.length} ${w.refs.length===1?t('link'):t('links')}`:''}</div>
-        </div></div>`;
-    }).join('')}</div>`
-    :`<div class="empty"><b>${t('No Warps yet.')}</b><br>${t('Star a tag anywhere you see one (☆ on the tag chips), or create one here.')}</div>`}`;
+/* ---- tags: every tag has a page, and pages can nest ---- */
+function openTagPage(tag){
+  const r=ensureTagRec(tag);
+  state.openTag=r.id; state.view='tags'; render();
 }
-function newWarp(){
-  const tags=allTags().filter(t=>!warpOf(t));
+function openTag(id){ state.openTag=id; state.view='tags'; render(); }
+
+function viewTagList(){
+  const roots=rootTags();
+  const pinned=allTagNames().filter(x=>{ const r=tagRec(x); return r&&r.starred; });
+  return `<div class="section-h"><h2>${t('Tags')}</h2>
+      <button class="btn primary" onclick="newTag()">+ ${t('New tag')}</button></div>
+    <p style="color:var(--ink-dim);font-size:14px;margin-bottom:18px;max-width:66ch">${t('Every tag has a page of its own — write on it, give it an image, pin links, and nest tags under a parent (sub-characters under a character).')}</p>
+    ${pinned.length?`<div class="legend" style="margin-bottom:16px">${pinned.map(p=>`<span class="lg lg-inbox" style="cursor:pointer" onclick="openTagPage(${JSON.stringify(p).replace(/"/g,'&quot;')})">★ ${esc(p)}</span>`).join('')}</div>`:''}
+    ${roots.length?`<div class="tag-tree">${roots.map(r=>tagRow(r,0)).join('')}</div>`
+      :`<div class="empty"><b>${t('No tags yet.')}</b><br>${t('Tag a note and it appears here.')}</div>`}`;
+}
+function tagRow(tag,depth,seen){
+  seen=seen||new Set();
+  const k=norm(tag);
+  if(seen.has(k)) return '';          // a cycle would otherwise recurse forever
+  seen.add(k);
+  const r=tagRec(tag), c=tagCount(tag), kids=childTags(tag);
+  const has=r&&(r.description||r.image||(r.refs&&r.refs.length));
+  const arg=JSON.stringify(tag).replace(/"/g,'&quot;');
+  return `<div class="tag-row" style="margin-inline-start:${depth*22}px" onclick="openTagPage(${arg})">
+      <span class="tag-dot"></span>
+      <span class="tag-name" dir="auto">${r&&r.starred?'★ ':''}${esc(r&&r.title?r.title:tag)}</span>
+      <span class="tag-hash" dir="auto">#${esc(tag)}</span>
+      <span class="tag-stats">${c} ${c===1?t('note'):t('notes')}${kids.length?` · ${kids.length} ${t('sub-tags')}`:''}${has?' · ✎':''}</span>
+    </div>${kids.map(x=>tagRow(x,depth+1,seen)).join('')}`;
+}
+function newTag(){
   const div=document.createElement('div'); div.className='overlay';
   div.onclick=e=>{ if(e.target===div) closeModal(); };
-  div.innerHTML=`<div class="modal"><h3>${t('New Warp')}</h3>
-    <p style="font-size:13.5px;color:var(--ink-dim);margin-bottom:10px">${t('Pick an existing tag to raise, or type a new name.')}</p>
-    <div class="frow"><div style="flex:2"><input id="wpNew" list="wpTags" placeholder="${t('tag name…')}" autofocus>
-      <datalist id="wpTags">${tags.map(t=>`<option value="${esc(t)}">`).join('')}</datalist></div>
-      <button class="btn primary" style="flex:0" onclick="createWarpFromInput()">${t('Create')}</button></div>
-    ${tags.length?`<div class="picker">${tags.map((t,i)=>`<div class="pick-row" dir="auto" onclick="createWarp(${JSON.stringify(t).replace(/"/g,'&quot;')})">${esc(t)} <span style="color:var(--ink-faint);font-size:12.5px">· ${tagCount(t)} ${tagCount(t)===1?t('thread'):t('threads')}</span></div>`).join('')}</div>`:''}
+  div.innerHTML=`<div class="modal"><h3>${t('New tag')}</h3>
+    <div class="frow"><div style="flex:2"><input id="wpNew" dir="auto" list="tagListAll" placeholder="${t('tag name…')}">
+      <datalist id="tagListAll">${allTagNames().map(x=>`<option value="${esc(x)}">`).join('')}</datalist></div>
+      <button class="btn primary" style="flex:0" onclick="createTagFromInput()">${t('Create')}</button></div>
   </div>`;
   document.body.appendChild(div);
   setTimeout(()=>{ const el=document.getElementById('wpNew'); if(el) el.focus(); },30);
 }
-function createWarpFromInput(){ const v=document.getElementById('wpNew').value.trim(); if(!v){ toast(t('Name it first')); return; } createWarp(v); }
-function createWarp(tag){
-  const t=canonTag(tag), ex=warpOf(t);
-  closeModal();
-  if(ex){ toast(`Already a ${WARP}`); openWarp(ex.id); return; }
-  const w={id:uid(),tag:t,title:t,description:'',image:null,refs:[],createdAt:Date.now(),updatedAt:Date.now()};
-  state.warps.unshift(w); openWarp(w.id); toast(`★ ${WARP} created`);
+function createTagFromInput(){
+  const v=document.getElementById('wpNew').value.trim();
+  if(!v){ toast(t('Name it first')); return; }
+  closeModal(); openTagPage(v);
 }
-function viewWarpDetail(){
-  const w=warpById(state.openWarp);
-  if(!w){ state.openWarp=null; return viewWarpList(); }
-  const threads=notesWithTag(w.tag);
-  const seqs=state.sequences.filter(s=>s.beats.some(b=>threads.some(n=>n.id===b.noteId)));
-  const noteRefs=threads.flatMap(n=>(n.refs||[]).map(r=>({url:r,from:n})));
-  return `<button class="btn ghost" onclick="state.openWarp=null;render()">${t('← All Warps')}</button>
+
+function viewTagDetail(){
+  const r=tagRecById(state.openTag);
+  if(!r){ state.openTag=null; return viewTagList(); }
+  const own=notesWithTag(r.tag);
+  const kids=childTags(r.tag);
+  const deep=descendantTags(r.tag);
+  const inherited=deep.flatMap(d=>notesWithTag(d)).filter((n,i,arr)=>arr.findIndex(x=>x.id===n.id)===i && !own.some(o=>o.id===n.id));
+  const seqs=state.sequences.filter(q=>q.beats.some(bt=>own.some(n=>n.id===bt.noteId)));
+  const noteRefs=own.flatMap(n=>(n.refs||[]).map(x=>({url:x,from:n})));
+  // a tag cannot be nested under itself or under its own descendant
+  const banned=new Set([norm(r.tag),...deep.map(norm)]);
+  const options=allTagNames().filter(x=>!banned.has(norm(x)));
+  const chain=[]; let p=r.parent;
+  const guard=new Set();
+  while(p && !guard.has(norm(p))){ guard.add(norm(p)); chain.unshift(p); p=parentOf(p); }
+  return `<button class="btn ghost" onclick="state.openTag=null;render()">${t('← All tags')}</button>
   <div style="height:12px"></div>
-  <div class="seq-hero" ${w.image?`style="background-image:url('${esc(w.image)}')"`:''}>
+  <div class="seq-hero" ${r.image?`style="background-image:url('${esc(r.image)}')"`:''}>
     <div class="seq-hero-inner">
-      <div style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:6px">★ ${WARP} · #${esc(w.tag)}</div>
-      <input class="title" dir="auto" placeholder="${t('Title…')}" value="${esc(w.title||'')}" onchange="updWarp('${w.id}','title',this.value)">
-      <textarea dir="auto" placeholder="${t('What does this thread mean to the work? Why does it keep coming back?')}" onchange="updWarp('${w.id}','description',this.value)">${esc(w.description||'')}</textarea>
+      ${chain.length?`<div class="tag-crumb">${chain.map(x=>`<span onclick="openTagPage(${JSON.stringify(x).replace(/"/g,'&quot;')})">${esc(x)}</span>`).join(' / ')} /</div>`:''}
+      <div style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:6px">${t('Tag')} · #${esc(r.tag)}</div>
+      <input class="title" dir="auto" placeholder="${t('Title…')}" value="${esc(r.title||'')}" onchange="updTag('${r.id}','title',this.value)">
+      <textarea dir="auto" style="min-height:120px" placeholder="${t('Write about this tag — who they are, what it means, anything you would put in an idea.')}" onchange="updTag('${r.id}','description',this.value)">${esc(r.description||'')}</textarea>
       <div class="seq-hero-row">
-        <button class="btn" style="flex:0" onclick="document.getElementById('warpImg').click()">🖼 ${w.image?t('Replace image'):t('Upload image')}</button>
-        ${w.image?`<button class="btn ghost" style="flex:0" onclick="removeWarpImage('${w.id}')">${t('Remove image')}</button>`:''}
-        <input type="file" id="warpImg" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="warpImage('${w.id}',this)">
+        <div style="flex:1;min-width:200px"><span class="flabel">${t('parent tag')}</span>
+          <select onchange="setTagParent('${r.id}',this.value)" style="width:100%">
+            <option value="">${t('— none (top level) —')}</option>
+            ${options.map(x=>`<option value="${esc(x)}" ${norm(r.parent)===norm(x)?'selected':''}>${esc(x)}</option>`).join('')}
+          </select></div>
+        <div style="flex:0"><span class="flabel">&nbsp;</span>
+          <button class="btn" onclick="toggleTagStar('${r.id}')">${r.starred?'★':'☆'} ${t('Pin')}</button></div>
+      </div>
+      <div class="seq-hero-row">
+        <button class="btn" style="flex:0" onclick="document.getElementById('tagImg').click()">🖼 ${r.image?t('Replace image'):t('Upload image')}</button>
+        ${r.image?`<button class="btn ghost" style="flex:0" onclick="removeTagImage('${r.id}')">${t('Remove image')}</button>`:''}
+        <input type="file" id="tagImg" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="tagImage('${r.id}',this)">
         <span style="flex:1"></span>
-        <button class="btn danger" style="flex:0" onclick="delWarp('${w.id}')">${t('Unstar / delete')}</button>
+        <button class="btn danger" style="flex:0" onclick="delTagPage('${r.id}')">${t('Delete page')}</button>
       </div>
     </div>
   </div>
 
-  <div class="section-h"><h2>${t('Pinned links')}</h2></div>
-  <div class="links-list">${(w.refs||[]).map((r,i)=>`<div class="link-row">
-      <span class="lbl">${esc(r.label||t('link'))}</span>
-      <a class="txt" href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a>
-      <button onclick="rmWarpRef('${w.id}',${i})" title="${t('remove')}">✕</button></div>`).join('')
+  ${kids.length?`<div class="section-h"><h2>${t('Sub-tags')}</h2></div>
+    <div class="tag-tree">${kids.map(x=>tagRow(x,0)).join('')}</div>`:''}
+
+  <div class="section-h" style="margin-top:34px"><h2>${t('Pinned links')}</h2></div>
+  <div class="links-list">${(r.refs||[]).map((x,i)=>`<div class="link-row">
+      <span class="lbl">${esc(x.label||t('link'))}</span>
+      <a class="txt" href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.url)}</a>
+      <button onclick="rmTagRef('${r.id}',${i})" title="${t('remove')}">✕</button></div>`).join('')
     ||`<span style="font-size:13.5px;color:var(--ink-faint)">${t('Nothing pinned yet — add reference art, a playlist, a doc.')}</span>`}</div>
   <div class="frow" style="margin-top:10px">
     <input id="wrLabel" dir="auto" placeholder="${t('label (e.g. mood board)')}" style="flex:1">
     <input id="wrUrl" placeholder="https://…" style="flex:2">
-    <button class="btn" style="flex:0" onclick="addWarpRef('${w.id}')">${t('+ Pin link')}</button>
+    <button class="btn" style="flex:0" onclick="addTagRef('${r.id}')">${t('+ Pin link')}</button>
   </div>
 
-  <div class="section-h" style="margin-top:34px"><h2>${t('Threads carrying')} #${esc(w.tag)}</h2>
-    <span style="color:var(--ink-faint);font-size:13px">${threads.length} ${t('notes')}</span></div>
-  ${threads.length?`<div class="grid">${threads.map(noteCard).join('')}</div>`
-    :`<div class="empty">${t('No notes carry this tag yet.')} ${t('Tag a note')} <b>${esc(w.tag)}</b> ${t('and it appears here automatically.')}</div>`}
+  <div class="section-h" style="margin-top:34px"><h2>${t('Notes tagged')} #${esc(r.tag)}</h2>
+    <span style="color:var(--ink-faint);font-size:13px">${own.length} ${t('notes')}</span></div>
+  ${own.length?`<div class="grid">${own.map(noteCard).join('')}</div>`
+    :`<div class="empty">${t('No notes carry this tag yet.')} ${t('Tag a note')} <b>${esc(r.tag)}</b> ${t('and it appears here automatically.')}</div>`}
+
+  ${inherited.length?`<div class="section-h" style="margin-top:34px"><h2>${t('From sub-tags')}</h2>
+    <span style="color:var(--ink-faint);font-size:13px">${inherited.length} ${t('notes')}</span></div>
+    <div class="grid">${inherited.map(noteCard).join('')}</div>`:''}
 
   ${noteRefs.length?`<div class="section-h" style="margin-top:34px"><h2>${t('References on those threads')}</h2></div>
-    <div class="links-list">${noteRefs.map(r=>`<div class="link-row">
-      <a class="txt" href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a>
-      <span class="lbl" style="cursor:pointer" onclick="openNote('${r.from.id}')">${t('from a note ↗')}</span></div>`).join('')}</div>`:''}
+    <div class="links-list">${noteRefs.map(x=>`<div class="link-row">
+      <a class="txt" href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.url)}</a>
+      <span class="lbl" style="cursor:pointer" onclick="openNote('${x.from.id}')">${t('from a note ↗')}</span></div>`).join('')}</div>`:''}
 
   ${seqs.length?`<div class="section-h" style="margin-top:34px"><h2>${t('Appears in these weaves')}</h2></div>
-    <div class="links-list">${seqs.map(s=>`<div class="link-row">
+    <div class="links-list">${seqs.map(q=>`<div class="link-row">
       <span class="lbl">⛓ ${t('sequence')}</span>
-      <span class="txt" dir="auto" onclick="openSeq('${s.id}')">${esc(s.title||t('Untitled'))}</span></div>`).join('')}</div>`:''}`;
+      <span class="txt" dir="auto" onclick="openSeq('${q.id}')">${esc(q.title||t('Untitled'))}</span></div>`).join('')}</div>`:''}`;
 }
-function updWarp(id,k,v){ const w=warpById(id); if(w){ w[k]=v.trim(); w.updatedAt=Date.now(); render(); } }
-function warpImage(id,input){
+function updTag(id,k,v){ const r=tagRecById(id); if(r){ r[k]=v.trim(); r.updatedAt=Date.now(); render(); } }
+function setTagParent(id,v){
+  const r=tagRecById(id); if(!r) return;
+  r.parent=v?canonTag(v):''; r.updatedAt=Date.now();
+  if(r.parent) ensureTagRec(r.parent);   // the parent needs a record so the tree can find it
+  render();
+}
+function toggleTagStar(id){ const r=tagRecById(id); if(r){ r.starred=!r.starred; r.updatedAt=Date.now(); render(); } }
+function tagImage(id,input){
   const f=input.files[0]; input.value=''; if(!f) return;
-  shrinkImage(f).then(d=>{ const w=warpById(id); if(w){ w.image=d; w.updatedAt=Date.now(); render(); toast(t('Image set 🖼')); } })
+  shrinkImage(f).then(d=>{ const r=tagRecById(id); if(r){ r.image=d; r.updatedAt=Date.now(); render(); toast(t('Image set 🖼')); } })
     .catch(()=>toast(t('Could not read that image')));
 }
-function removeWarpImage(id){ const w=warpById(id); if(w){ w.image=null; w.updatedAt=Date.now(); render(); } }
-function addWarpRef(id){
-  const w=warpById(id); if(!w) return;
+function removeTagImage(id){ const r=tagRecById(id); if(r){ r.image=null; r.updatedAt=Date.now(); render(); } }
+function addTagRef(id){
+  const r=tagRecById(id); if(!r) return;
   const url=document.getElementById('wrUrl').value.trim();
   if(!url){ toast(t('Paste a URL first')); return; }
-  w.refs=w.refs||[];
-  w.refs.push({label:document.getElementById('wrLabel').value.trim(),url});
-  w.updatedAt=Date.now(); render(); toast(t('Link pinned'));
+  r.refs=r.refs||[];
+  r.refs.push({label:document.getElementById('wrLabel').value.trim(),url});
+  r.updatedAt=Date.now(); render(); toast(t('Link pinned'));
 }
-function rmWarpRef(id,i){ const w=warpById(id); if(w){ w.refs.splice(i,1); w.updatedAt=Date.now(); render(); } }
-function delWarp(id){
-  const w=warpById(id); if(!w) return;
-  if(!confirm(`Remove the ${WARP} "${w.title||w.tag}"?\n\nThe tag and all its notes stay — only this hub page and its pinned links go.`)) return;
-  tomb(id); state.warps=state.warps.filter(x=>x.id!==id); state.openWarp=null; render();
+function rmTagRef(id,i){ const r=tagRecById(id); if(r){ r.refs.splice(i,1); r.updatedAt=Date.now(); render(); } }
+function delTagPage(id){
+  const r=tagRecById(id); if(!r) return;
+  if(!confirm(t('Delete this tag page?')+'\n\n'+t('The tag itself and every note using it stay — only this page, its text and pinned links go.'))) return;
+  const orphan=norm(r.tag);
+  (state.tags||[]).forEach(x=>{ if(norm(x.parent)===orphan){ x.parent=r.parent||''; x.updatedAt=Date.now(); } });
+  tomb(id);
+  state.tags=state.tags.filter(x=>x.id!==id); state.openTag=null; render();
 }
 
 /* ---- note modal ---- */
@@ -1019,7 +1106,7 @@ function importData(input){
   r.onload=()=>{ try{
       const s=JSON.parse(r.result);
       if(!Array.isArray(s.notes)||!Array.isArray(s.sequences)) throw new Error('bad shape');
-      state=Object.assign(blank(),s); render(); toast(t('Imported ✦'));
+      state=Object.assign(blank(),migrate(s)); render(); toast(t('Imported ✦'));
     }catch(e){ alert(t('That file does not look like a Storyloom backup.')); } };
   r.readAsText(f); input.value='';
 }
@@ -1173,13 +1260,13 @@ async function pushToServer(){
 }
 function mergeVaults(local,remote){
   const out=blank();
-  out.view=local.view; out.filters=local.filters; out.openSeq=local.openSeq; out.openWarp=local.openWarp;
+  out.view=local.view; out.filters=local.filters; out.openSeq=local.openSeq; out.openTag=local.openTag;
   out.deleted=Object.assign({},remote.deleted||{});
   Object.entries(local.deleted||{}).forEach(([k,t])=>{ if(!out.deleted[k]||t>out.deleted[k]) out.deleted[k]=t; });
   const wm=new Map();
-  (remote.warps||[]).forEach(w=>wm.set(norm(w.tag),w));
-  (local.warps||[]).forEach(w=>{ const k=norm(w.tag), ex=wm.get(k); if(!ex||(w.updatedAt||0)>=(ex.updatedAt||0)) wm.set(k,w); });
-  out.warps=[...wm.values()];
+  ((remote.tags||remote.warps)||[]).forEach(w=>wm.set(norm(w.tag),w));
+  ((local.tags||local.warps)||[]).forEach(w=>{ const k=norm(w.tag), ex=wm.get(k); if(!ex||(w.updatedAt||0)>=(ex.updatedAt||0)) wm.set(k,w); });
+  out.tags=[...wm.values()];
   const nm=new Map();
   (remote.notes||[]).forEach(n=>nm.set(n.id,n));
   (local.notes||[]).forEach(n=>{ const ex=nm.get(n.id); if(!ex||(n.updatedAt||0)>=(ex.updatedAt||0)) nm.set(n.id,n); });
@@ -1203,7 +1290,7 @@ function applyTombstones(v){
   const dead=o=>d[o.id]!==undefined && d[o.id]>=(o.updatedAt||0);
   v.notes=(v.notes||[]).filter(n=>!dead(n));
   v.sequences=(v.sequences||[]).filter(s=>!dead(s));
-  v.warps=(v.warps||[]).filter(w=>!dead(w));
+  v.tags=(v.tags||[]).filter(w=>!dead(w));
   const alive=new Set(v.notes.map(n=>n.id));
   v.sequences.forEach(s=>{ s.beats=(s.beats||[]).filter(b=>alive.has(b.noteId)); });
   v.links=(v.links||[]).filter(l=>alive.has(l.from)&&alive.has(l.to));
@@ -1250,7 +1337,7 @@ async function initStorage(){
       serverMode=true;
       if(r.ok){
         const remote=await r.json();
-        if(remote&&Array.isArray(remote.notes)) state=mergeVaults(state,remote);
+        if(remote&&Array.isArray(remote.notes)) state=mergeVaults(state,migrate(remote));
       }else if(freshVault){ state=seed(); }
       render(); pushToServer();
       return;
@@ -1295,15 +1382,15 @@ async function cloudPull(silent){
     if(!g.ok){ setBadge(t('☁ cannot reach GitHub'),true); return; }
     const j={sha:g.sha};
     if(j.sha!==c.sha){
-      const remote=JSON.parse(g.text);
+      const remote=migrate(JSON.parse(g.text));
       if(remote&&Array.isArray(remote.notes)){
-        const before=JSON.stringify({n:state.notes,s:state.sequences,w:state.warps,l:state.links});
+        const before=JSON.stringify({n:state.notes,s:state.sequences,w:state.tags,l:state.links});
         state=mergeVaults(state,remote);
         c.sha=j.sha; saveSyncCfg(c);
         suppressRender();
-        const after=JSON.stringify({n:state.notes,s:state.sequences,w:state.warps,l:state.links});
+        const after=JSON.stringify({n:state.notes,s:state.sequences,w:state.tags,l:state.links});
         // our copy contributed something the remote lacked → send it back up
-        if(after!==JSON.stringify({n:remote.notes,s:remote.sequences,w:remote.warps||[],l:remote.links})) cloudPush();
+        if(after!==JSON.stringify({n:remote.notes,s:remote.sequences,w:remote.tags||[],l:remote.links})) cloudPush();
         else setBadge(t('☁ synced ✓'));
         if(!silent&&before!==after) toast(t('Pulled changes ⇣'));
         return;
@@ -1325,7 +1412,7 @@ async function cloudPush(){
     if(g.ok){
       sha=g.sha;
       if(sha!==c.sha){
-        const remote=JSON.parse(g.text);
+        const remote=migrate(JSON.parse(g.text));
         if(remote&&Array.isArray(remote.notes)){ state=mergeVaults(state,remote); suppressRender(); }
       }
     }else if(g.status!==404){ throw new Error('GET '+g.status); }
@@ -1342,7 +1429,7 @@ async function cloudPush(){
   }
 }
 // which tab/filter you're looking at is yours alone — never sync it
-function stripUi(s){ const o=Object.assign({},s); delete o.view; delete o.openSeq; delete o.openWarp; delete o.filters; return o; }
+function stripUi(s){ const o=Object.assign({},s); delete o.view; delete o.openSeq; delete o.openTag; delete o.filters; return o; }
 function startCloudWatch(){
   setInterval(()=>{ if(document.visibilityState==='visible') cloudPull(true); },45000);
   window.addEventListener('focus',()=>cloudPull(true));
