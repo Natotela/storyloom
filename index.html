@@ -115,6 +115,18 @@
   .chip-star.on{color:var(--accent)}
   .chip.on .chip-star{color:var(--chip-on-ink)}
 
+  .ac-wrap{position:relative;flex:1;min-width:120px}
+  .ac-wrap input{width:100%}
+  .ac{position:absolute;z-index:60;inset-inline-start:0;top:calc(100% + 4px);min-width:100%;max-width:320px;
+    background:var(--bg2);border:1px solid var(--accent2);border-radius:10px;padding:4px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35);max-height:230px;overflow:auto}
+  .ac div{padding:7px 10px;border-radius:7px;font-size:14px;cursor:pointer;display:flex;gap:8px;align-items:center}
+  .ac div.on,.ac div:hover{background:var(--panel2)}
+  .ac .ac-count{margin-inline-start:auto;font-size:11.5px;color:var(--ink-faint)}
+  .ac .ac-new{font-size:11px;color:var(--accent);border:1px dashed var(--accent);border-radius:5px;padding:1px 6px}
+  .ac .ac-kind{font-size:11px;color:var(--accent2)}
+  .tag-capture{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:20px}
+  .tag-capture textarea{width:100%;min-height:62px;resize:vertical;background:var(--bg2);font-size:15px}
   .tag-tree{display:flex;flex-direction:column;gap:6px}
   .tag-row{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);
     border-inline-start:4px solid var(--accent);border-radius:10px;padding:11px 14px;cursor:pointer;
@@ -340,7 +352,7 @@ function tagRecById(id){ return (state.tags||[]).find(w=>w.id===id); }
 // a page is created only when there is something to save on it
 function ensureTagRec(tag){
   let r=tagRec(tag);
-  if(!r){ r={id:uid(),tag:canonTag(tag),title:'',description:'',image:null,refs:[],parent:'',starred:false,createdAt:Date.now(),updatedAt:Date.now()};
+  if(!r){ r={id:uid(),tag:canonTag(tag),title:'',description:'',image:null,refs:[],parent:'',type:'general',starred:false,createdAt:Date.now(),updatedAt:Date.now()};
     state.tags.push(r); }
   return r;
 }
@@ -351,6 +363,9 @@ function allTagNames(){
   (state.tags||[]).forEach(r=>{ if(!m.has(norm(r.tag))) m.set(norm(r.tag),r.tag); });
   return [...m.values()].sort((a,b)=>a.localeCompare(b));
 }
+// the Weaver decides which tags are characters; everything else is a general tag
+function tagType(tag){ const r=tagRec(tag); return (r&&r.type)||'general'; }
+function isCharacter(tag){ return tagType(tag)==='character'; }
 function parentOf(tag){ const r=tagRec(tag); return r&&r.parent?r.parent:''; }
 function childTags(tag){ const k=norm(tag); return allTagNames().filter(x=>norm(parentOf(x))===k); }
 function descendantTags(tag,seen){
@@ -562,7 +577,16 @@ const I18N={he:{
  "Delete this tag page?": "למחוק את דף התגית?",
  "The tag itself and every note using it stay — only this page, its text and pinned links go.": "התגית עצמה וכל ההערות שמשתמשות בה נשארות — רק הדף הזה, הטקסט שלו והקישורים הנעוצים נמחקים.",
  "open this tag page": "פתיחת דף התגית",
- "Add idea": "הוספת רעיון"
+ "Add idea": "הוספת רעיון",
+ "Character tags": "תגיות של דמויות",
+ "General tags": "תגיות כלליות",
+ "All tags": "כל התגיות",
+ "tag type": "סוג תגית",
+ "general": "כללית",
+ "new tag": "תגית חדשה",
+ "Write an idea straight into this tag…": "כתבו רעיון ישירות אל התגית הזו…",
+ "It is tagged": "הוא יתויג",
+ "automatically and appears below.": "אוטומטית ויופיע למטה."
 }};
 /* ---- interface language ---------------------------------------------------
    Note *content* always decides its own direction via dir="auto" (so an English
@@ -613,7 +637,7 @@ function captureBox(){
     <div class="capture-row">
       <select id="capKind">${KINDS.map(k=>`<option value="${k}">${t(k)}</option>`).join('')}</select>
       <input id="capWorld" dir="auto" list="worldList" placeholder="${t('world / project')}">
-      <input id="capTags" dir="auto" placeholder="${t('tags, comma, separated')}">
+      <span class="ac-wrap"><input id="capTags" dir="auto" autocomplete="off" placeholder="${t('tags, comma, separated')}" oninput="tagSuggest('capTags','capTagsAC')" onfocus="tagSuggest('capTags','capTagsAC')" onblur="setTimeout(acClose,120)" onkeydown="acKey(event,'capTags','capTagsAC')"><div class="ac" id="capTagsAC" style="display:none"></div></span>
       <button class="btn" onclick="document.getElementById('capImg').click()" title="${t('Attach a jpg/png image')}">🖼</button>
       <input type="file" id="capImg" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="pickCapImage(this)">
       <span id="capPreview" class="cap-preview">${pendingImage?`<img src="${pendingImage}" alt=""><button class="btn ghost" onclick="pendingImage=null;showCapPreview()" title="${t('remove image')}">✕</button>`:''}</span>
@@ -678,6 +702,48 @@ function filterBar(){
       return `<span class="chip ${on?'on':''}"><span onclick="toggleTagFilter(${i})">${esc(t)}</span><button class="chip-star ${pinned?'on':''}" onclick="event.stopPropagation();openTagByName(${i})" title="${t2('open this tag page')}">${pinned?'★':'☆'}</button></span>`;
     }).join('')}</div>
   </div>`;
+}
+/* Tag inputs are comma-separated, so a plain datalist cannot help — it matches the
+   whole field. This suggests against the segment after the last comma, and flags when
+   what you typed would create a brand new tag rather than reuse one. */
+let AC={id:null,items:[],idx:-1};
+function acSeg(v){ const i=v.lastIndexOf(','); return {head:v.slice(0,i+1), seg:v.slice(i+1)}; }
+function tagSuggest(inputId,boxId){
+  const inp=document.getElementById(inputId), box=document.getElementById(boxId);
+  if(!inp||!box) return;
+  const {head,seg}=acSeg(inp.value);
+  const q=norm(seg);
+  const already=new Set(head.split(',').map(norm).filter(Boolean));
+  const pool=allTagNames().filter(x=>!already.has(norm(x)));
+  const hits=q?pool.filter(x=>norm(x).includes(q)).slice(0,8):pool.slice(0,8);
+  const exact=q&&allTagNames().some(x=>norm(x)===q);
+  AC={id:inputId,items:hits,idx:hits.length?0:-1,box:boxId};
+  if(!hits.length&&!q){ box.innerHTML=''; box.style.display='none'; return; }
+  box.style.display='block';
+  box.innerHTML=hits.map((x,i)=>{
+    const rec=tagRec(x), kind=rec&&rec.type==='character'?`<span class="ac-kind">${t2('character')}</span>`:'';
+    return `<div class="${i===0?'on':''}" onmousedown="event.preventDefault();acPick(${i})">${esc(x)}${kind}<span class="ac-count">${tagCount(x)}</span></div>`;
+  }).join('') + ((q&&!exact)?`<div onmousedown="event.preventDefault();acKeep()">${esc(seg.trim())} <span class="ac-new">${t2('new tag')}</span></div>`:'');
+}
+function acPick(i){
+  const inp=document.getElementById(AC.id); if(!inp) return;
+  const {head}=acSeg(inp.value);
+  inp.value=(head?head+' ':'')+AC.items[i]+', ';
+  acClose(); inp.focus(); tagSuggest(AC.id,AC.box);
+}
+function acKeep(){ acClose(); const inp=document.getElementById(AC.id); if(inp){ inp.value=inp.value.replace(/,\s*$/,'')+', '; inp.focus(); } }
+function acClose(){ const b=document.getElementById(AC.box||''); if(b){ b.style.display='none'; } }
+function acKey(e,inputId,boxId){
+  const box=document.getElementById(boxId);
+  if(!box||box.style.display==='none'||!AC.items.length) return;
+  const rows=[...box.children];
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+    e.preventDefault();
+    AC.idx=(AC.idx+(e.key==='ArrowDown'?1:-1)+rows.length)%rows.length;
+    rows.forEach((r,i)=>r.classList.toggle('on',i===AC.idx));
+  } else if(e.key==='Enter'&&!e.ctrlKey){
+    if(AC.idx>=0&&AC.idx<AC.items.length){ e.preventDefault(); acPick(AC.idx); }
+  } else if(e.key==='Escape'){ acClose(); }
 }
 function toggleTagFilter(i){ const t=TAGIDX[i]; setF('tag', norm(state.filters.tag)===norm(t)?'':t); }
 function openTagByName(i){ openTagPage(TAGIDX[i]); }
@@ -835,29 +901,44 @@ function openTagPage(tag){
 function openTag(id){ state.openTag=id; state.view='tags'; render(); }
 
 function viewTagList(){
-  const roots=rootTags();
   const pinned=allTagNames().filter(x=>{ const r=tagRec(x); return r&&r.starred; });
+  // character tags render as a tree, and everything reachable from one belongs to that
+  // section — so no tag can show up twice or fall out of both lists
+  const charRoots=rootTags().filter(isCharacter);
+  const claimed=new Set();
+  charRoots.forEach(x=>{ claimed.add(norm(x)); descendantTags(x).forEach(d=>claimed.add(norm(d))); });
+  const rest=allTagNames().filter(x=>!claimed.has(norm(x)));
+  const restRoots=rest.filter(x=>{ const p=parentOf(x); return !p||!rest.some(y=>norm(y)===norm(p)); });
   return `<div class="section-h"><h2>${t('Tags')}</h2>
       <button class="btn primary" onclick="newTag()">+ ${t('New tag')}</button></div>
     <p style="color:var(--ink-dim);font-size:14px;margin-bottom:18px;max-width:66ch">${t('Every tag has a page of its own — write on it, give it an image, pin links, and nest tags under a parent (sub-characters under a character).')}</p>
     ${pinned.length?`<div class="legend" style="margin-bottom:16px">${pinned.map(p=>`<span class="lg lg-inbox" style="cursor:pointer" onclick="openTagPage(${JSON.stringify(p).replace(/"/g,'&quot;')})">★ ${esc(p)}</span>`).join('')}</div>`:''}
-    ${roots.length?`<div class="tag-tree">${roots.map(r=>tagRow(r,0)).join('')}</div>`
-      :`<div class="empty"><b>${t('No tags yet.')}</b><br>${t('Tag a note and it appears here.')}</div>`}`;
+    ${charRoots.length?`<div class="section-h" style="margin-bottom:10px"><h2>${t('Character tags')}</h2>
+        <span style="color:var(--ink-faint);font-size:13px">${claimed.size}</span></div>
+      <div class="tag-tree" style="margin-bottom:26px">${charRoots.map(x=>tagRow(x,0)).join('')}</div>`:''}
+    ${restRoots.length?`<div class="section-h" style="margin-bottom:10px"><h2>${charRoots.length?t('General tags'):t('All tags')}</h2>
+        <span style="color:var(--ink-faint);font-size:13px">${rest.length}</span></div>
+      <div class="tag-tree">${restRoots.map(x=>tagRow(x,0,null,rest)).join('')}</div>`:''}
+    ${(!charRoots.length&&!restRoots.length)?`<div class="empty"><b>${t('No tags yet.')}</b><br>${t('Tag a note and it appears here.')}</div>`:''}`;
 }
-function tagRow(tag,depth,seen){
+// `pool` limits which children may be drawn, so a tag claimed by the character tree is
+// never drawn a second time under the general list
+function tagRow(tag,depth,seen,pool){
   seen=seen||new Set();
   const k=norm(tag);
   if(seen.has(k)) return '';          // a cycle would otherwise recurse forever
   seen.add(k);
-  const r=tagRec(tag), c=tagCount(tag), kids=childTags(tag);
+  const r=tagRec(tag), c=tagCount(tag);
+  let kids=childTags(tag);
+  if(pool) kids=kids.filter(x=>pool.some(y=>norm(y)===norm(x)));
   const has=r&&(r.description||r.image||(r.refs&&r.refs.length));
   const arg=JSON.stringify(tag).replace(/"/g,'&quot;');
   return `<div class="tag-row" style="margin-inline-start:${depth*22}px" onclick="openTagPage(${arg})">
-      <span class="tag-dot"></span>
+      <span class="tag-dot" style="${isCharacter(tag)?'background:var(--accent2)':''}"></span>
       <span class="tag-name" dir="auto">${r&&r.starred?'★ ':''}${esc(r&&r.title?r.title:tag)}</span>
       <span class="tag-hash" dir="auto">#${esc(tag)}</span>
       <span class="tag-stats">${c} ${c===1?t('note'):t('notes')}${kids.length?` · ${kids.length} ${t('sub-tags')}`:''}${has?' · ✎':''}</span>
-    </div>${kids.map(x=>tagRow(x,depth+1,seen)).join('')}`;
+    </div>${kids.map(x=>tagRow(x,depth+1,seen,pool)).join('')}`;
 }
 function newTag(){
   const div=document.createElement('div'); div.className='overlay';
@@ -905,6 +986,11 @@ function viewTagDetail(){
             <option value="">${t('— none (top level) —')}</option>
             ${options.map(x=>`<option value="${esc(x)}" ${norm(r.parent)===norm(x)?'selected':''}>${esc(x)}</option>`).join('')}
           </select></div>
+        <div style="flex:0;min-width:170px"><span class="flabel">${t('tag type')}</span>
+          <select onchange="updTag('${r.id}','type',this.value)" style="width:100%">
+            <option value="general" ${(r.type||'general')==='general'?'selected':''}>${t('general')}</option>
+            <option value="character" ${r.type==='character'?'selected':''}>${t('character')}</option>
+          </select></div>
         <div style="flex:0"><span class="flabel">&nbsp;</span>
           <button class="btn" onclick="toggleTagStar('${r.id}')">${r.starred?'★':'☆'} ${t('Pin')}</button></div>
       </div>
@@ -935,6 +1021,18 @@ function viewTagDetail(){
 
   <div class="section-h" style="margin-top:34px"><h2>${t('Notes tagged')} #${esc(r.tag)}</h2>
     <span style="color:var(--ink-faint);font-size:13px">${own.length} ${t('notes')}</span></div>
+  <div class="tag-capture">
+    <textarea id="tagCapText" dir="auto" placeholder="${t('Write an idea straight into this tag…')}"></textarea>
+    <div class="capture-row">
+      <select id="tagCapKind">${KINDS.map(k=>`<option value="${k}">${t(k)}</option>`).join('')}</select>
+      <input id="tagCapWorld" dir="auto" list="worldList" placeholder="${t('world / project')}" value="${esc(commonWorld(own))}">
+      <button class="btn" onclick="document.getElementById('tagCapImg').click()" title="${t('Attach a jpg/png image')}">🖼</button>
+      <input type="file" id="tagCapImg" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="pickCapImage(this)">
+      <span id="capPreview" class="cap-preview">${pendingImage?`<img src="${pendingImage}" alt=""><button class="btn ghost" onclick="pendingImage=null;showCapPreview()" title="${t('remove image')}">✕</button>`:''}</span>
+      <button class="btn primary" onclick="captureIntoTag('${r.id}')">+ ${t('Add idea')}</button>
+    </div>
+    <div class="hint">${t('It is tagged')} <b>#${esc(r.tag)}</b> ${t('automatically and appears below.')}</div>
+  </div>
   ${own.length?`<div class="grid">${own.map(noteCard).join('')}</div>`
     :`<div class="empty">${t('No notes carry this tag yet.')} ${t('Tag a note')} <b>${esc(r.tag)}</b> ${t('and it appears here automatically.')}</div>`}
 
@@ -953,6 +1051,23 @@ function viewTagDetail(){
       <span class="txt" dir="auto" onclick="openSeq('${q.id}')">${esc(q.title||t('Untitled'))}</span></div>`).join('')}</div>`:''}`;
 }
 function updTag(id,k,v){ const r=tagRecById(id); if(r){ r[k]=v.trim(); r.updatedAt=Date.now(); render(); } }
+// most notes on a tag page share a world, so offer it rather than making them retype it
+function commonWorld(notes){
+  const c={}; notes.forEach(n=>{ if(n.world) c[n.world]=(c[n.world]||0)+1; });
+  const best=Object.keys(c).sort((a,b)=>c[b]-c[a])[0];
+  return best||'';
+}
+function captureIntoTag(id){
+  const r=tagRecById(id); if(!r) return;
+  const txt=document.getElementById('tagCapText').value.trim();
+  if(!txt&&!pendingImage){ toast(t('Write something (or attach an image) first ✍️')); return; }
+  state.notes.unshift({id:uid(),text:txt||'(image)',kind:document.getElementById('tagCapKind').value,
+    world:document.getElementById('tagCapWorld').value.trim(),tags:[r.tag],refs:[],image:pendingImage||null,
+    status:'inbox',createdAt:Date.now(),updatedAt:Date.now()});
+  pendingImage=null;
+  render(); toast(t('Spark saved ✦'));
+  const el=document.getElementById('tagCapText'); if(el) el.focus();
+}
 function setTagParent(id,v){
   const r=tagRecById(id); if(!r) return;
   r.parent=v?canonTag(v):''; r.updatedAt=Date.now();
@@ -1005,7 +1120,7 @@ function openNote(id){
       <div><span class="flabel">${t('world')}</span><input id="nWorld" dir="auto" list="worldList" value="${esc(n.world||'')}"></div>
       <div><span class="flabel">${t('status')}</span><select id="nStatus"><option value="inbox" ${n.status==='inbox'?'selected':''}>${t('inbox')}</option><option value="sorted" ${n.status==='sorted'?'selected':''}>${t('sorted')}</option></select></div>
     </div>
-    <div class="frow"><div style="flex:2"><span class="flabel">${t('tags (comma separated)')}</span><input id="nTags" dir="auto" value="${esc((n.tags||[]).join(', '))}"></div></div>
+    <div class="frow"><div style="flex:2"><span class="flabel">${t('tags (comma separated)')}</span><span class="ac-wrap" style="display:block"><input id="nTags" dir="auto" autocomplete="off" value="${esc((n.tags||[]).join(', '))}" oninput="tagSuggest('nTags','nTagsAC')" onfocus="tagSuggest('nTags','nTagsAC')" onblur="setTimeout(acClose,120)" onkeydown="acKey(event,'nTags','nTagsAC')"><div class="ac" id="nTagsAC" style="display:none"></div></span></div></div>
     <div class="frow"><div style="flex:2"><span class="flabel">${t('reference links (image / doc / song URLs, comma separated)')}</span><input id="nRefs" value="${esc((n.refs||[]).join(', '))}"></div></div>
     ${n.refs&&n.refs.length?`<div class="refs-list">${n.refs.map(r=>`<a href="${esc(r)}" target="_blank" rel="noopener">${esc(r)}</a>`).join('<br>')}</div>`:''}
     <div style="margin-top:14px"><span class="flabel">${t('linked threads')}</span>

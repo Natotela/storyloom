@@ -74,10 +74,19 @@ vault folder). Each file becomes one inbox note titled by its filename. It under
 - **Tag pages** — the 4th tab. Every tag in use gets a page of its own: a title, free
   text you write like an idea, an image, and pinned links. Pages are created lazily, the
   moment you first put something on one.
+- **Character tags vs general tags** — the Weaver marks a tag as *character* on its page.
+  Character tags get their own section at the top of the Tags tab, rendered as a tree;
+  everything else falls under General tags. A tag appears in exactly one section.
 - **Tag hierarchy** — a tag can sit under a parent tag (sub-characters under a character).
-  The Tags tab shows the tree; a parent page also surfaces the notes belonging to its
-  sub-tags under "From sub-tags". A tag cannot be nested under itself or its own
-  descendant, so the tree can never loop.
+  A parent page also surfaces the notes belonging to its sub-tags under "From sub-tags".
+  A tag cannot be nested under itself or its own descendant, so the tree can never loop.
+- **Tag autocomplete** — the tags field (in capture and in the note editor) suggests tags
+  you already use as you type each comma-separated entry, showing each one’s type and note
+  count. Anything unrecognised is flagged **new tag** before you commit to it, so a typo
+  cannot quietly fork a tag into two.
+- **Capture from a tag page** — a tag page has its own idea box. Whatever you write there
+  is tagged with that tag automatically and appears below without leaving the page; the
+  world field is pre-filled from the notes already there.
 - **Pinned tags** — the ☆ on a tag page marks it important; pinned tags appear as chips at
   the top of the Tags tab and get a ★ wherever that tag is shown.
 - **Tags are case-insensitive** — "Opening" and "opening" are the same tag; the first
