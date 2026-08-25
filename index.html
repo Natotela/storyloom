@@ -240,13 +240,13 @@
   <div class="logo">✦ Storyloom</div>
   <nav id="nav"></nav>
   <div class="hdr-actions">
-    <span id="storeBadge" title="${t('Where the vault is being saved')}" style="align-self:center;font-size:11.5px;color:var(--ink-faint);white-space:nowrap"></span>
+    <span id="storeBadge" style="align-self:center;font-size:11.5px;color:var(--ink-faint);white-space:nowrap"></span>
     <button class="btn ghost" id="langBtn" onclick="toggleLang()" style="font-weight:600;padding:6px 11px"></button>
     <button class="btn ghost" id="themeBtn" onclick="cycleTheme()" style="font-size:17px;padding:6px 10px"></button>
-    <button class="btn ghost" onclick="exportData()" title="${t('Download everything as JSON')}">${t('Export')}</button>
-    <button class="btn ghost" onclick="document.getElementById('importFile').click()" title="${t('Restore from a JSON export')}">${t('Import')}</button>
-    <button class="btn ghost" onclick="document.getElementById('mdFiles').click()" title="${t('Import markdown notes from Obsidian or Logseq')}">${t('Import .md')}</button>
-    <button class="btn" onclick="openSync()" title="${t('Push/pull the vault to a GitHub repo')}">${t('⇅ Sync')}</button>
+    <button class="btn ghost" id="btnExport" onclick="exportData()"></button>
+    <button class="btn ghost" id="btnImport" onclick="document.getElementById('importFile').click()"></button>
+    <button class="btn ghost" id="btnImportMd" onclick="document.getElementById('mdFiles').click()"></button>
+    <button class="btn" id="btnSync" onclick="openSync()"></button>
     <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(this)">
     <input type="file" id="mdFiles" accept=".md,.markdown,.txt" multiple style="display:none" onchange="importMd(this)">
   </div>
@@ -353,8 +353,8 @@ const I18N={he:{
  "Inbox": "נכנס",
  "Library": "ספרייה",
  "Sequences": "רצפים",
- "Warp": "ציר",
- "Warps": "צירים",
+ "Warp": "שתי",
+ "Warps": "שתי",
  "Export": "ייצוא",
  "Import": "ייבוא",
  "Import .md": "ייבוא ‎.md",
@@ -427,7 +427,7 @@ const I18N={he:{
  "Remove image": "הסרת תמונה",
  "Delete this sequence? (Notes stay in the library.)": "למחוק את הרצף? (ההערות נשארות בספרייה.)",
  "the threads everything crosses": "החוטים שהכול חוצה",
- "No Warps yet.": "אין עדיין צירים.",
+ "No Warps yet.": "אין עדיין חוטי שתי.",
  "Star a tag anywhere you see one (☆ on the tag chips), or create one here.": "סמנו תגית בכוכב בכל מקום שתראו (☆ על תווית התגית), או צרו כאן.",
  "tag name…": "שם תגית…",
  "Create": "יצירה",
@@ -505,11 +505,11 @@ const I18N={he:{
  "Label for this relation? (optional — e.g. \"same scene\", \"contradicts\", \"echoes\")": "תווית לקשר הזה? (רשות — למשל \"אותה סצנה\", \"סותר\", \"מהדהד\")",
  "Pick an existing tag to raise, or type a new name.": "בחרו תגית קיימת להעלאה, או הקלידו שם חדש.",
  "Nothing pinned yet — add reference art, a playlist, a doc.": "עדיין לא ננעץ דבר — הוסיפו רפרנס, פלייליסט, מסמך.",
- "New Warp": "ציר חדש",
+ "New Warp": "שתי חדש",
  "Image set 🖼": "התמונה נקבעה 🖼",
- "A Warp is a tag raised to a place of its own": "ציר הוא תגית שהועלתה למקום משלה: מוטיב חוזר, דמות או שאלה, עם מקום להערות ולקישורים משלה, שאוסף כל חוט שנושא אותה.",
+ "A Warp is a tag raised to a place of its own": "חוט שתי הוא תגית שהועלתה למקום משלה: מוטיב חוזר, דמות או שאלה, עם מקום להערות ולקישורים משלה, שאוסף כל חוט שנושא אותה.",
  "← All sequences": "→ כל הרצפים",
- "← All Warps": "→ כל הצירים",
+ "← All Warps": "→ כל חוטי השתי",
  "Threads carrying": "חוטים הנושאים",
  "No notes carry this tag yet.": "אף הערה לא נושאת את התגית הזו עדיין.",
  "Tag a note": "תייגו הערה",
@@ -527,6 +527,16 @@ function applyLang(){
   document.documentElement.dir = l==='he' ? 'rtl' : 'ltr';
   const b=document.getElementById('langBtn');
   if(b){ b.textContent = l==='he'?'A':'א'; b.title = l==='he'?'Switch interface to English':'החלף ממשק לעברית'; }
+  // the header lives in static markup, so its labels are set here rather than by a template
+  [['btnExport','Export','Download everything as JSON'],
+   ['btnImport','Import','Restore from a JSON export'],
+   ['btnImportMd','Import .md','Import markdown notes from Obsidian or Logseq'],
+   ['btnSync','⇅ Sync','Push/pull the vault to a GitHub repo']].forEach(([id,label,tip])=>{
+    const el=document.getElementById(id);
+    if(el){ el.textContent=t(label); el.title=t(tip); }
+  });
+  const sb=document.getElementById('storeBadge');
+  if(sb) sb.title=t('Where the vault is being saved');
 }
 function toggleLang(){
   localStorage.setItem(LANGKEY, lang()==='he'?'en':'he');

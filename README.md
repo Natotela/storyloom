@@ -115,8 +115,8 @@ Adding or fixing a translation: edit the `I18N.he` dictionary near the top of th
 English strings are the keys, so any key without a translation simply falls back to
 English rather than breaking.
 
-A note on one term: *Warp* is **ציר** in Hebrew, not the literal weaving term שתי — which
-is spelled identically to "two" and would read as a typo.
+A note on one term: *Warp* is **שתי** in Hebrew — the actual weaving word. Unvocalized it
+is spelled the same as "two", and that double reading is deliberate (IC’s call).
 
 ## Is there a database?
 
