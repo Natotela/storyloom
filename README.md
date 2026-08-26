@@ -71,18 +71,20 @@ vault folder). Each file becomes one inbox note titled by its filename. It under
 - **Sequence (weave)** — an ordered set of notes ("beats"), each stamped with a *moment*
   label, plus a description and a background image. Drag or arrow-key beats to reorder.
 - **Link** — a labeled relation between two notes ("echoes", "contradicts", "same scene").
-- **Character Tags vs. General Tags** — two separate top-level tabs, not two labels
-  on one list. **Character Tags** is an isolated space: the Weaver marks a tag as a
-  character from its own page, and any note carrying that tag — created in Ideas, in the
-  note editor, or straight on the character’s page — belongs only there. It will not
-  appear in Ideas, Library, or the Sequences beat-picker. Untagging it returns it to the
-  normal pool immediately; nothing is a one-way trip. **General Tags** is the opposite: a
-  flat, always-complete, searchable index of every tag that exists in the vault —
-  including character tags, so a name can always be found — for fast lookup rather than
-  another place notes live.
-- **Tags are clickable** — wherever a tag appears on a note, clicking it is a hyperlink:
-  a character tag opens its page under Character Tags, any other tag opens under General
-  Tags. You never have to know a tag’s type to follow it.
+- **Character Tags vs. General Tags** — both tabs list every tag that exists;
+  they differ in role, not in coverage. **Character Tags** is the main tag workspace —
+  full hierarchy, exactly what the single "Tags" tab used to be. **General Tags** is a
+  flat, always-searchable index of the same tags, for a fast lookup by name rather than
+  browsing a tree. Working a tree or a list never jumps you to the other tab — a click
+  inside either one opens that tag’s page right there.
+- **Marking a tag as a character** (on its own page, either tab) gives it a private space:
+  any note carrying that tag — created in Ideas, in the note editor, or straight on the
+  tag’s page — belongs only there and stops appearing in Ideas, Library, or the Sequences
+  beat-picker. Removing the tag returns the note to the normal pool immediately; nothing
+  is a one-way trip. The dot on a tag row shows which ones are currently marked.
+- **Tags are clickable on notes** — wherever a tag appears on a note card, clicking it is
+  a hyperlink: a character tag opens under Character Tags, any other tag opens under
+  General Tags. You never have to know a tag’s type to follow it.
 - **Tag pages** — every tag in use gets a page of its own: a title, free text you write
   like an idea, an image, and pinned links. Pages are created lazily, the moment you first
   put something on one.
@@ -103,6 +105,12 @@ vault folder). Each file becomes one inbox note titled by its filename. It under
   world field is pre-filled from the notes already there.
 - **Pinned tags** — the ☆ on a tag page marks it important; pinned tags appear as chips at
   the top of their section and get a ★ wherever that tag is shown.
+- **Multi-select, Gmail-style** — every note card in Ideas and Library has a checkbox
+  in its corner. Once anything is checked, an action bar appears: Select all shown, Add
+  tag…, Set world…, Add to sequence…, Mark sorted, Delete, and Clear. Bulk actions apply
+  to every checked note at once (e.g. tagging five sparks with one motif in one step).
+  Selection is per-device and forgotten when you switch tabs — it never syncs and checking
+  a box never triggers a save to GitHub.
 - **Tags are case-insensitive** — "Opening" and "opening" are the same tag; the first
   spelling used is kept as the display form, so slips can't fragment your canon.
 

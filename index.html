@@ -165,6 +165,14 @@
   .st-chip{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;
     padding:3px 9px;border-radius:6px;background:var(--st);color:var(--chip-on-ink);white-space:nowrap}
   .card-img{width:calc(100% + 28px);margin:-19px -14px 0;border-radius:0;max-height:150px;object-fit:cover}
+  .card.selected{outline:2px solid var(--accent2);outline-offset:1px}
+  .card-check{position:absolute;top:10px;inset-inline-start:10px;z-index:3;width:19px;height:19px;
+    cursor:pointer;accent-color:var(--accent2)}
+  .selbar{position:sticky;top:64px;z-index:40;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    background:var(--panel2);border:1px solid var(--accent2);border-radius:12px;padding:9px 14px;margin-bottom:16px}
+  .selbar b{font-size:14px}
+  .selbar .spacer{flex:1}
+  .sel-all{font-size:13px;color:var(--ink-dim);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
   .legend{display:flex;gap:10px;font-size:12.5px;color:var(--ink-dim);margin-bottom:14px;flex-wrap:wrap;align-items:center}
   .legend span.lg{display:inline-flex;align-items:center;gap:7px;border:1.5px solid var(--st);
     background-image:linear-gradient(var(--stbg),var(--stbg));border-radius:9px;padding-block:4px;padding-inline:4px 11px}
@@ -295,7 +303,7 @@ function load(){
 }
 // tag pages were called Warps before they gained hierarchy and free text
 function migrate(v){ if(v && v.warps && !v.tags){ v.tags=v.warps; delete v.warps; } return v; }
-function blank(){ return {notes:[],sequences:[],links:[],tags:[],deleted:{},view:'inbox',openSeq:null,openTag:null,gtagQuery:'',filters:{q:'',world:'',kind:'',tag:''}}; }
+function blank(){ return {notes:[],sequences:[],links:[],tags:[],deleted:{},view:'inbox',openSeq:null,openTag:null,gtagQuery:'',selectedIds:[],filters:{q:'',world:'',kind:'',tag:''}}; }
 // A deletion has to be a fact that travels, not just an absence — otherwise the other
 // device still has the item and the merge hands it straight back. tomb() records when
 // something died; the merge then drops it everywhere.
@@ -398,6 +406,12 @@ function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg
 /* ============ render ============ */
 function render(){
   save();
+  renderView();
+}
+// The parts of render() that touch only the DOM, never the store — used when a
+// change is purely local UI (like toggling a checkbox) and a network push would
+// be wasted.
+function renderView(){
   renderNav();
   document.getElementById('worldList').innerHTML = worlds().map(w=>`<option value="${esc(w)}">`).join('');
   const m=document.getElementById('main');
@@ -595,15 +609,21 @@ const I18N={he:{
  "automatically and appears below.": "אוטומטית ויופיע למטה.",
  "Character Tags": "תגיות של דמויות",
  "General Tags": "תגיות כללי",
- "New character tag": "תגית דמות חדשה",
- "A world of its own for your cast. A note written here — or tagged with one of these from Ideas — belongs only to its character: it will not appear in Ideas, Library, or Sequences.": "עולם בפני עצמו לצוות הדמויות שלכם. רעיון שנכתב כאן — או שתויג באחת מהתגיות האלה מתוך רעיונות — שייך רק לדמות שלו: הוא לא יופיע ברעיונות, בספרייה או ברצפים.",
- "No character tags yet.": "אין עדיין תגיות של דמויות.",
- "Create one, or mark an existing tag as a character from its page.": "צרו אחת, או סמנו תגית קיימת כדמות מתוך הדף שלה.",
- "Every tag in the vault, for fast lookup. A character tag found here still opens in Character Tags.": "כל תגית בכספת, לאיתור מהיר. תגית דמות שנמצאת כאן עדיין תיפתח תחת תגיות של דמויות.",
  "Search tags…": "חיפוש תגיות…",
  "← All character tags": "→ כל תגיות הדמויות",
  "← All general tags": "→ כל התגיות הכלליות",
- "Private to this character — notes here do not appear in Ideas, Library, or Sequences.": "פרטי לדמות הזו — ההערות כאן לא מופיעות ברעיונות, בספרייה או ברצפים."
+ "Private to this character — notes here do not appear in Ideas, Library, or Sequences.": "פרטי לדמות הזו — ההערות כאן לא מופיעות ברעיונות, בספרייה או ברצפים.",
+ "Every tag has a page of its own — write on it, give it an image, pin links, and nest tags under a parent (sub-characters under a character). Mark a tag as a character on its own page to give it a private space: its notes stop appearing in Ideas, Library, and Sequences.": "לכל תגית יש דף משלה — כתבו בו, הוסיפו תמונה, נעצו קישורים, וקננו תגיות תחת תגית־אם (תת־דמויות תחת דמות). סמנו תגית כדמות בדף שלה כדי לתת לה מרחב פרטי: ההערות שלה מפסיקות להופיע ברעיונות, בספרייה וברצפים.",
+ "Every tag in the vault, for fast lookup by name.": "כל תגית בכספת, לאיתור מהיר לפי שם.",
+ "Select": "בחירה",
+ "selected": "נבחרו",
+ "Select all shown": "בחירת הכל",
+ "Add tag…": "הוספת תגית…",
+ "Set world…": "קביעת עולם…",
+ "Add to sequence…": "הוספה לרצף…",
+ "Mark sorted": "סימון כממוין",
+ "Clear": "ניקוי",
+ "Delete {n} notes?": "למחוק {n} הערות?"
 }};
 /* ---- interface language ---------------------------------------------------
    Note *content* always decides its own direction via dir="auto" (so an English
@@ -646,10 +666,14 @@ function renderNav(){
   ].map(([v,label])=>`<button class="${state.view===v?'active':''}" onclick="go('${v}')">${label}</button>`).join('');
 }
 // Clicking a top-level tab always returns to that section's root listing.
-function go(v){ state.view=v; state.openSeq=null; state.openTag=null; render(); }
-// A tag is a hyperlink: character tags live only in Character Tags, everything
-// else is filed under General Tags — clicking one always lands in the right place.
+function go(v){ state.view=v; state.openSeq=null; state.openTag=null; state.selectedIds=[]; render(); }
+// A tag pill shown ON A NOTE is a hyperlink: a character tag opens under Character
+// Tags, everything else opens under General Tags.
 function goToTag(tag){ openTagPage(tag, isCharacter(tag)?'tags':'gtags'); }
+// A row clicked INSIDE a tag list/tree (Character Tags, General Tags, or the
+// "Sub-tags" list on a tag's own page) stays in whichever of those two tabs you
+// were already browsing — so working a tree never jumps you to the other tab.
+function openTagStay(tag){ openTagPage(tag, state.view==='gtags'?'gtags':'tags'); }
 
 /* ---- capture box ---- */
 function captureBox(){
@@ -786,7 +810,9 @@ const ST_LABEL={inbox:'inbox',sorted:'sorted',seq:'in sequence'};
 const stLabel=k=>t(ST_LABEL[k]);
 function noteCard(n){
   const seqs=seqsOf(n.id), nLinks=linksOf(n.id).length, st=noteStatus(n);
-  return `<div class="card st-${st}" onclick="openNote('${n.id}')">
+  const sel=(state.selectedIds||[]).includes(n.id);
+  return `<div class="card st-${st} ${sel?'selected':''}" onclick="openNote('${n.id}')">
+    <input type="checkbox" class="card-check" ${sel?'checked':''} onclick="event.stopPropagation();toggleSelect('${n.id}')" title="${t('Select')}">
     ${n.image?`<img class="card-img" src="${n.image}" alt="" loading="lazy">`:''}
     <div class="card-top"><span class="kind kind-${n.kind}">${t(n.kind)}</span><span class="st-chip">${stLabel(st)}</span></div>
     <div class="card-text ${n.kind==='dialogue'?'dlg':''}" dir="auto">${esc(n.text)}</div>
@@ -802,9 +828,100 @@ function noteCard(n){
 /* ---- views ---- */
 function filtersActive(){ const f=state.filters; return !!(f.q||f.world||f.kind||f.tag); }
 function filteredEmpty(){ return `<div class="empty"><b>${t('Nothing matches the current filters.')}</b><br><br><button class="btn" onclick="clearFilters()">${t('Clear filters')}</button></div>`; }
+
+/* ---- multi-select, Gmail-style: a checkbox per card, a bar of bulk actions
+   once anything is checked. Selection is per-device UI state — it is never
+   saved to disk or synced, and toggling one never triggers a network push. */
+function toggleSelect(id){
+  const i=state.selectedIds.indexOf(id);
+  if(i<0) state.selectedIds.push(id); else state.selectedIds.splice(i,1);
+  renderView();
+}
+function clearSelection(){ state.selectedIds=[]; renderView(); }
+function selectAllShown(ids){
+  const all=ids.every(id=>state.selectedIds.includes(id));
+  state.selectedIds = all ? state.selectedIds.filter(id=>!ids.includes(id)) : [...new Set([...state.selectedIds,...ids])];
+  renderView();
+}
+// only the ids from THIS list count toward "selected" here, so a stray id from a
+// list you've since navigated away from can never inflate the count
+function selectionBar(ids){
+  const sel=state.selectedIds.filter(id=>ids.includes(id));
+  if(!sel.length) return '';
+  const allOn=ids.length>0&&ids.every(id=>state.selectedIds.includes(id));
+  const arg=JSON.stringify(ids).replace(/"/g,'&quot;');
+  return `<div class="selbar">
+    <b>${sel.length} ${t('selected')}</b>
+    <span class="sel-all" onclick="selectAllShown(${arg})"><input type="checkbox" ${allOn?'checked':''} onclick="event.stopPropagation();event.preventDefault();selectAllShown(${arg})">${t('Select all shown')}</span>
+    <span class="spacer"></span>
+    <button class="btn" onclick="bulkAddTag()">🏷 ${t('Add tag…')}</button>
+    <button class="btn" onclick="bulkSetWorld()">🌍 ${t('Set world…')}</button>
+    <button class="btn" onclick="bulkAddToSequence()">⛓ ${t('Add to sequence…')}</button>
+    <button class="btn" onclick="bulkMarkSorted()">✓ ${t('Mark sorted')}</button>
+    <button class="btn danger" onclick="bulkDelete()">🗑 ${t('Delete')}</button>
+    <button class="btn ghost" onclick="clearSelection()">✕ ${t('Clear')}</button>
+  </div>`;
+}
+function selectedNotes(){ return state.notes.filter(n=>state.selectedIds.includes(n.id)); }
+function bulkDelete(){
+  const ns=selectedNotes(); if(!ns.length) return;
+  if(!confirm(t('Delete {n} notes?').replace('{n}',ns.length))) return;
+  const ids=new Set(ns.map(n=>n.id));
+  ns.forEach(n=>tomb(n.id));
+  state.notes=state.notes.filter(n=>!ids.has(n.id));
+  state.sequences.forEach(s=>{ const b0=s.beats.length; s.beats=s.beats.filter(b=>!ids.has(b.noteId)); if(s.beats.length!==b0) s.updatedAt=Date.now(); });
+  state.links=state.links.filter(l=>!ids.has(l.from)&&!ids.has(l.to));
+  state.selectedIds=[];
+  render(); toast(t('Saved'));
+}
+function bulkAddTag(){
+  const ns=selectedNotes(); if(!ns.length) return;
+  const v=prompt(t('tag name…'));
+  if(!v||!v.trim()) return;
+  const add=parseTags(v);
+  ns.forEach(n=>{ n.tags=parseTags([...(n.tags||[]),...add].join(', ')); n.updatedAt=Date.now(); });
+  render(); toast(t('Saved'));
+}
+function bulkSetWorld(){
+  const ns=selectedNotes(); if(!ns.length) return;
+  const v=prompt(t('world / project'));
+  if(v===null) return;
+  ns.forEach(n=>{ n.world=v.trim(); n.updatedAt=Date.now(); });
+  render(); toast(t('Saved'));
+}
+function bulkMarkSorted(){
+  const ns=selectedNotes().filter(n=>n.status==='inbox'); if(!ns.length){ toast(t('Saved')); return; }
+  ns.forEach(n=>{ n.status='sorted'; n.updatedAt=Date.now(); });
+  render(); toast(t('Saved'));
+}
+function bulkAddToSequence(){
+  const ns=selectedNotes().filter(n=>!noteIsCharacterScoped(n));
+  if(!ns.length){ toast(t('No unused notes match.')); return; }
+  const div=document.createElement('div'); div.className='overlay';
+  div.onclick=e=>{ if(e.target===div) closeModal(); };
+  div.innerHTML=`<div class="modal"><h3>${t('Add to sequence…')}</h3>
+    <div class="picker">${state.sequences.map(s=>`<div class="pick-row" dir="auto" onclick="bulkAddToSequenceConfirm('${s.id}')">${esc(s.title||t('Untitled'))} <span style="color:var(--ink-faint);font-size:12.5px">· ${s.beats.length} ${t('beats')}</span></div>`).join('')
+      || `<div class="empty" style="padding:20px">${t('No sequences yet.')}</div>`}</div>
+  </div>`;
+  document.body.appendChild(div);
+}
+function bulkAddToSequenceConfirm(seqId){
+  const s=seqById(seqId); if(!s){ closeModal(); return; }
+  const ns=selectedNotes().filter(n=>!noteIsCharacterScoped(n));
+  const used=new Set(s.beats.map(b=>b.noteId));
+  let added=0;
+  ns.forEach(n=>{
+    if(used.has(n.id)) return;
+    s.beats.push({noteId:n.id,time:''}); used.add(n.id); added++;
+    if(n.status==='inbox'){ n.status='sorted'; n.updatedAt=Date.now(); }
+  });
+  s.updatedAt=Date.now();
+  state.selectedIds=[];
+  closeModal(); render(); toast(t('Beat added — now give it a moment in time'));
+}
 function viewInbox(){
   const inbox=applyFilters(state.notes.filter(n=>n.status==='inbox'&&!noteIsCharacterScoped(n)));
-  return captureBox()+filterBar()+
+  return captureBox()+filterBar()+selectionBar(inbox.map(n=>n.id))+
     (inbox.length?`<div class="grid">${inbox.map(noteCard).join('')}</div>`
     :(filtersActive()?filteredEmpty()
     :`<div class="empty"><b>${t('Inbox zero.')}</b><br>${t('Every spark has been sorted. Drop new ones above.')}</div>`));
@@ -818,7 +935,7 @@ function viewLibrary(){
       <span class="lg lg-sorted"><span class="ldot"></span>${t('sorted')}</span>
       <span class="lg lg-seq"><span class="ldot"></span>${t('woven into a sequence')}</span>
     </div>`
-    +filterBar()
+    +filterBar()+selectionBar(notes.map(n=>n.id))
     +(notes.length?`<div class="grid">${notes.map(noteCard).join('')}</div>`:filteredEmpty());
 }
 function seqBg(s){ return s.image || s.bgUrl || ''; }
@@ -928,23 +1045,27 @@ function openTagPage(tag,fromView){
 }
 function openTag(id,fromView){ state.openTag=id; state.view=fromView||'tags'; render(); }
 
+// Character Tags is the main tag workspace — every tag, full hierarchy, exactly
+// what the single "Tags" tab used to be. It is not filtered to type='character':
+// that flag only decides isolation (below) and which tab a note's tag-pill jumps
+// to, not which tags are browsable here. The dot on each row shows the flag.
 function viewCharTagList(){
-  const roots=rootTags().filter(isCharacter);
-  const pinned=allTagNames().filter(x=>{ const r=tagRec(x); return r&&r.starred&&isCharacter(x); });
+  const roots=rootTags();
+  const pinned=allTagNames().filter(x=>{ const r=tagRec(x); return r&&r.starred; });
   return `<div class="section-h"><h2>${t('Character Tags')}</h2>
-      <button class="btn primary" onclick="newTag('character')">+ ${t('New character tag')}</button></div>
-    <p style="color:var(--ink-dim);font-size:14px;margin-bottom:18px;max-width:66ch">${t('A world of its own for your cast. A note written here — or tagged with one of these from Ideas — belongs only to its character: it will not appear in Ideas, Library, or Sequences.')}</p>
-    ${pinned.length?`<div class="legend" style="margin-bottom:16px">${pinned.map(p=>`<span class="lg lg-inbox" style="cursor:pointer" onclick="goToTag(${JSON.stringify(p).replace(/"/g,'&quot;')})">★ ${esc(p)}</span>`).join('')}</div>`:''}
+      <button class="btn primary" onclick="newTag('tags')">+ ${t('New tag')}</button></div>
+    <p style="color:var(--ink-dim);font-size:14px;margin-bottom:18px;max-width:66ch">${t('Every tag has a page of its own — write on it, give it an image, pin links, and nest tags under a parent (sub-characters under a character). Mark a tag as a character on its own page to give it a private space: its notes stop appearing in Ideas, Library, and Sequences.')}</p>
+    ${pinned.length?`<div class="legend" style="margin-bottom:16px">${pinned.map(p=>`<span class="lg lg-inbox" style="cursor:pointer" onclick="openTagStay(${JSON.stringify(p).replace(/"/g,'&quot;')})">★ ${esc(p)}</span>`).join('')}</div>`:''}
     ${roots.length?`<div class="tag-tree">${roots.map(x=>tagRow(x,0)).join('')}</div>`
-      :`<div class="empty"><b>${t('No character tags yet.')}</b><br>${t('Create one, or mark an existing tag as a character from its page.')}</div>`}`;
+      :`<div class="empty"><b>${t('No tags yet.')}</b><br>${t('Tag a note and it appears here.')}</div>`}`;
 }
 function viewGeneralTagList(){
   const q=norm(state.gtagQuery||'');
   const all=allTagNames();
   const hits=q?all.filter(x=>norm(x).includes(q)):all;
   return `<div class="section-h"><h2>${t('General Tags')}</h2>
-      <button class="btn primary" onclick="newTag('general')">+ ${t('New tag')}</button></div>
-    <p style="color:var(--ink-dim);font-size:14px;margin-bottom:14px;max-width:66ch">${t('Every tag in the vault, for fast lookup. A character tag found here still opens in Character Tags.')}</p>
+      <button class="btn primary" onclick="newTag('gtags')">+ ${t('New tag')}</button></div>
+    <p style="color:var(--ink-dim);font-size:14px;margin-bottom:14px;max-width:66ch">${t('Every tag in the vault, for fast lookup by name.')}</p>
     <input type="search" dir="auto" placeholder="${t('Search tags…')}" value="${esc(state.gtagQuery||'')}" oninput="setGtagQuery(this.value)" style="width:100%;margin-bottom:16px">
     ${hits.length?`<div class="tag-tree">${hits.map(x=>tagRowFlat(x)).join('')}</div>`
       :(q?`<div class="empty">${t('Nothing matches the current filters.')}</div>`
@@ -959,7 +1080,7 @@ function tagRow(tag,depth,seen){
   const r=tagRec(tag), c=tagCount(tag), kids=childTags(tag);
   const has=r&&(r.description||r.image||(r.refs&&r.refs.length));
   const arg=JSON.stringify(tag).replace(/"/g,'&quot;');
-  return `<div class="tag-row" style="margin-inline-start:${depth*22}px" onclick="goToTag(${arg})">
+  return `<div class="tag-row" style="margin-inline-start:${depth*22}px" onclick="openTagStay(${arg})">
       <span class="tag-dot" style="${isCharacter(tag)?'background:var(--accent2)':''}"></span>
       <span class="tag-name" dir="auto">${r&&r.starred?'★ ':''}${esc(r&&r.title?r.title:tag)}</span>
       <span class="tag-hash" dir="auto">#${esc(tag)}</span>
@@ -971,34 +1092,32 @@ function tagRow(tag,depth,seen){
 function tagRowFlat(tag){
   const r=tagRec(tag), c=tagCount(tag), char=isCharacter(tag);
   const arg=JSON.stringify(tag).replace(/"/g,'&quot;');
-  return `<div class="tag-row" onclick="goToTag(${arg})">
+  return `<div class="tag-row" onclick="openTagStay(${arg})">
       <span class="tag-dot" style="${char?'background:var(--accent2)':''}"></span>
       <span class="tag-name" dir="auto">${r&&r.starred?'★ ':''}${esc(r&&r.title?r.title:tag)}</span>
       <span class="tag-hash" dir="auto">#${esc(tag)}</span>
       <span class="tag-stats">${char?t('character'):t('general')} · ${c} ${c===1?t('note'):t('notes')}</span>
     </div>`;
 }
-function newTag(defaultType){
-  const div=document.createElement('div'); div.className='overlay'; div.dataset.defaultType=defaultType||'general';
+// returnView says which tab you land back on ('tags' or 'gtags') — the new tag
+// itself is always plain (type 'general') until the Weaver marks it a character
+// from its own page, the one place that decision is meant to be made.
+function newTag(returnView){
+  const div=document.createElement('div'); div.className='overlay';
   div.onclick=e=>{ if(e.target===div) closeModal(); };
-  div.innerHTML=`<div class="modal"><h3>${defaultType==='character'?t('New character tag'):t('New tag')}</h3>
+  div.innerHTML=`<div class="modal"><h3>${t('New tag')}</h3>
     <div class="frow"><div style="flex:2"><input id="wpNew" dir="auto" list="tagListAll" placeholder="${t('tag name…')}">
       <datalist id="tagListAll">${allTagNames().map(x=>`<option value="${esc(x)}">`).join('')}</datalist></div>
-      <button class="btn primary" style="flex:0" onclick="createTagFromInput('${defaultType||'general'}')">${t('Create')}</button></div>
+      <button class="btn primary" style="flex:0" onclick="createTagFromInput('${returnView||'tags'}')">${t('Create')}</button></div>
   </div>`;
   document.body.appendChild(div);
   setTimeout(()=>{ const el=document.getElementById('wpNew'); if(el) el.focus(); },30);
 }
-function createTagFromInput(defaultType){
+function createTagFromInput(returnView){
   const v=document.getElementById('wpNew').value.trim();
   if(!v){ toast(t('Name it first')); return; }
   closeModal();
-  const r=ensureTagRec(v);
-  // the "+ New character tag" button is also how an existing general tag gets
-  // promoted; the reverse never happens here, so a character tag is never
-  // silently demoted just because someone typed its name into the other dialog
-  if(defaultType==='character'&&r.type!=='character'){ r.type='character'; r.updatedAt=Date.now(); }
-  openTagPage(v, r.type==='character'?'tags':'gtags');
+  openTagPage(v, returnView||'tags');
 }
 
 function viewTagDetail(){
@@ -1020,7 +1139,7 @@ function viewTagDetail(){
   <div style="height:12px"></div>
   <div class="seq-hero" ${r.image?`style="background-image:url('${esc(r.image)}')"`:''}>
     <div class="seq-hero-inner">
-      ${chain.length?`<div class="tag-crumb">${chain.map(x=>`<span onclick="goToTag(${JSON.stringify(x).replace(/"/g,'&quot;')})">${esc(x)}</span>`).join(' / ')} /</div>`:''}
+      ${chain.length?`<div class="tag-crumb">${chain.map(x=>`<span onclick="openTagStay(${JSON.stringify(x).replace(/"/g,'&quot;')})">${esc(x)}</span>`).join(' / ')} /</div>`:''}
       <div style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:6px">${t('Tag')} · #${esc(r.tag)}</div>
       ${r.type==='character'?`<div style="font-size:13px;color:var(--accent2);margin-bottom:10px">${t('Private to this character — notes here do not appear in Ideas, Library, or Sequences.')}</div>`:''}
       <input class="title" dir="auto" placeholder="${t('Title…')}" value="${esc(r.title||'')}" onchange="updTag('${r.id}','title',this.value)">
@@ -1589,7 +1708,7 @@ async function cloudPush(){
   }
 }
 // which tab/filter you're looking at is yours alone — never sync it
-function stripUi(s){ const o=Object.assign({},s); delete o.view; delete o.openSeq; delete o.openTag; delete o.gtagQuery; delete o.filters; return o; }
+function stripUi(s){ const o=Object.assign({},s); delete o.view; delete o.openSeq; delete o.openTag; delete o.gtagQuery; delete o.selectedIds; delete o.filters; return o; }
 function startCloudWatch(){
   setInterval(()=>{ if(document.visibilityState==='visible') cloudPull(true); },45000);
   window.addEventListener('focus',()=>cloudPull(true));
