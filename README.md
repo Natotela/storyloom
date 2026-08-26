@@ -71,24 +71,38 @@ vault folder). Each file becomes one inbox note titled by its filename. It under
 - **Sequence (weave)** — an ordered set of notes ("beats"), each stamped with a *moment*
   label, plus a description and a background image. Drag or arrow-key beats to reorder.
 - **Link** — a labeled relation between two notes ("echoes", "contradicts", "same scene").
-- **Tag pages** — the 4th tab. Every tag in use gets a page of its own: a title, free
-  text you write like an idea, an image, and pinned links. Pages are created lazily, the
-  moment you first put something on one.
-- **Character tags vs general tags** — the Weaver marks a tag as *character* on its page.
-  Character tags get their own section at the top of the Tags tab, rendered as a tree;
-  everything else falls under General tags. A tag appears in exactly one section.
+- **Character Tags vs. General Tags** — two separate top-level tabs, not two labels
+  on one list. **Character Tags** is an isolated space: the Weaver marks a tag as a
+  character from its own page, and any note carrying that tag — created in Ideas, in the
+  note editor, or straight on the character’s page — belongs only there. It will not
+  appear in Ideas, Library, or the Sequences beat-picker. Untagging it returns it to the
+  normal pool immediately; nothing is a one-way trip. **General Tags** is the opposite: a
+  flat, always-complete, searchable index of every tag that exists in the vault —
+  including character tags, so a name can always be found — for fast lookup rather than
+  another place notes live.
+- **Tags are clickable** — wherever a tag appears on a note, clicking it is a hyperlink:
+  a character tag opens its page under Character Tags, any other tag opens under General
+  Tags. You never have to know a tag’s type to follow it.
+- **Tag pages** — every tag in use gets a page of its own: a title, free text you write
+  like an idea, an image, and pinned links. Pages are created lazily, the moment you first
+  put something on one.
 - **Tag hierarchy** — a tag can sit under a parent tag (sub-characters under a character).
   A parent page also surfaces the notes belonging to its sub-tags under "From sub-tags".
   A tag cannot be nested under itself or its own descendant, so the tree can never loop.
 - **Tag autocomplete** — the tags field (in capture and in the note editor) suggests tags
   you already use as you type each comma-separated entry, showing each one’s type and note
   count. Anything unrecognised is flagged **new tag** before you commit to it, so a typo
-  cannot quietly fork a tag into two.
+  cannot quietly fork a tag into two — and typing an existing *general* tag never creates
+  a character tag by accident, since only a character tag already declared as such isolates
+  a note.
+- **Search matches tags too** — the search box in Ideas and Library now matches a note’s
+  tags, not just its body text. General Tags has its own comprehensive tag-name search box,
+  for finding a tag itself rather than the notes on it.
 - **Capture from a tag page** — a tag page has its own idea box. Whatever you write there
   is tagged with that tag automatically and appears below without leaving the page; the
   world field is pre-filled from the notes already there.
 - **Pinned tags** — the ☆ on a tag page marks it important; pinned tags appear as chips at
-  the top of the Tags tab and get a ★ wherever that tag is shown.
+  the top of their section and get a ★ wherever that tag is shown.
 - **Tags are case-insensitive** — "Opening" and "opening" are the same tag; the first
   spelling used is kept as the display form, so slips can't fragment your canon.
 

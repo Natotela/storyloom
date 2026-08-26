@@ -193,7 +193,8 @@
   textarea[dir=auto],input[dir=auto]{text-align:start}
   .card-text:dir(rtl),.beat-text:dir(rtl){line-height:1.65}
   .card-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--ink-faint);margin-top:auto}
-  .tag{font-size:11.5px;color:var(--tag-ink);background:var(--tag-bg);padding:2px 8px;border-radius:12px}
+  .tag{font-size:11.5px;color:var(--tag-ink);background:var(--tag-bg);padding:2px 8px;border-radius:12px;cursor:pointer}
+  .tag:hover{filter:brightness(1.15)}
   .world-pill{font-size:11.5px;color:var(--world-ink);background:var(--world-bg);padding:2px 8px;border-radius:12px}
   .in-seq{font-size:11px;color:var(--accent2)}
 
@@ -294,7 +295,7 @@ function load(){
 }
 // tag pages were called Warps before they gained hierarchy and free text
 function migrate(v){ if(v && v.warps && !v.tags){ v.tags=v.warps; delete v.warps; } return v; }
-function blank(){ return {notes:[],sequences:[],links:[],tags:[],deleted:{},view:'inbox',openSeq:null,openTag:null,filters:{q:'',world:'',kind:'',tag:''}}; }
+function blank(){ return {notes:[],sequences:[],links:[],tags:[],deleted:{},view:'inbox',openSeq:null,openTag:null,gtagQuery:'',filters:{q:'',world:'',kind:'',tag:''}}; }
 // A deletion has to be a fact that travels, not just an absence — otherwise the other
 // device still has the item and the merge hands it straight back. tomb() records when
 // something died; the merge then drops it everywhere.
@@ -366,6 +367,10 @@ function allTagNames(){
 // the Weaver decides which tags are characters; everything else is a general tag
 function tagType(tag){ const r=tagRec(tag); return (r&&r.type)||'general'; }
 function isCharacter(tag){ return tagType(tag)==='character'; }
+// A note carrying any character tag belongs only to that character's page — it is
+// derived from the note's current tags, never a stored flag, so tagging or untagging
+// a note moves it in or out of isolation immediately and reactively.
+function noteIsCharacterScoped(n){ return (n.tags||[]).some(isCharacter); }
 function parentOf(tag){ const r=tagRec(tag); return r&&r.parent?r.parent:''; }
 function childTags(tag){ const k=norm(tag); return allTagNames().filter(x=>norm(parentOf(x))===k); }
 function descendantTags(tag,seen){
@@ -399,7 +404,8 @@ function render(){
   if(state.view==='inbox') m.innerHTML=viewInbox();
   else if(state.view==='library') m.innerHTML=viewLibrary();
   else if(state.view==='sequences') m.innerHTML = state.openSeq ? viewSeqDetail() : viewSeqList();
-  else if(state.view==='tags') m.innerHTML = state.openTag ? viewTagDetail() : viewTagList();
+  else if(state.view==='tags') m.innerHTML = state.openTag ? viewTagDetail() : viewCharTagList();
+  else if(state.view==='gtags') m.innerHTML = state.openTag ? viewTagDetail() : viewGeneralTagList();
   bindDrag();
 }
 const I18N={he:{
@@ -586,7 +592,18 @@ const I18N={he:{
  "new tag": "תגית חדשה",
  "Write an idea straight into this tag…": "כתבו רעיון ישירות אל התגית הזו…",
  "It is tagged": "הוא יתויג",
- "automatically and appears below.": "אוטומטית ויופיע למטה."
+ "automatically and appears below.": "אוטומטית ויופיע למטה.",
+ "Character Tags": "תגיות של דמויות",
+ "General Tags": "תגיות כללי",
+ "New character tag": "תגית דמות חדשה",
+ "A world of its own for your cast. A note written here — or tagged with one of these from Ideas — belongs only to its character: it will not appear in Ideas, Library, or Sequences.": "עולם בפני עצמו לצוות הדמויות שלכם. רעיון שנכתב כאן — או שתויג באחת מהתגיות האלה מתוך רעיונות — שייך רק לדמות שלו: הוא לא יופיע ברעיונות, בספרייה או ברצפים.",
+ "No character tags yet.": "אין עדיין תגיות של דמויות.",
+ "Create one, or mark an existing tag as a character from its page.": "צרו אחת, או סמנו תגית קיימת כדמות מתוך הדף שלה.",
+ "Every tag in the vault, for fast lookup. A character tag found here still opens in Character Tags.": "כל תגית בכספת, לאיתור מהיר. תגית דמות שנמצאת כאן עדיין תיפתח תחת תגיות של דמויות.",
+ "Search tags…": "חיפוש תגיות…",
+ "← All character tags": "→ כל תגיות הדמויות",
+ "← All general tags": "→ כל התגיות הכלליות",
+ "Private to this character — notes here do not appear in Ideas, Library, or Sequences.": "פרטי לדמות הזו — ההערות כאן לא מופיעות ברעיונות, בספרייה או ברצפים."
 }};
 /* ---- interface language ---------------------------------------------------
    Note *content* always decides its own direction via dir="auto" (so an English
@@ -624,11 +641,15 @@ function renderNav(){
     ['inbox',`${t('Ideas')}${inboxCount?`<span class="count">${inboxCount}</span>`:''}`],
     ['library',t('Library')],
     ['sequences',t('Sequences')],
-    ['tags',t('Tags')],
+    ['tags',t('Character Tags')],
+    ['gtags',t('General Tags')],
   ].map(([v,label])=>`<button class="${state.view===v?'active':''}" onclick="go('${v}')">${label}</button>`).join('');
 }
 // Clicking a top-level tab always returns to that section's root listing.
 function go(v){ state.view=v; state.openSeq=null; state.openTag=null; render(); }
+// A tag is a hyperlink: character tags live only in Character Tags, everything
+// else is filed under General Tags — clicking one always lands in the right place.
+function goToTag(tag){ openTagPage(tag, isCharacter(tag)?'tags':'gtags'); }
 
 /* ---- capture box ---- */
 function captureBox(){
@@ -692,7 +713,9 @@ document.addEventListener('keydown',e=>{
 let TAGIDX=[];
 function filterBar(){
   const f=state.filters, ws=worlds();
-  TAGIDX=allTags();
+  // character tags never match anything here — their notes are excluded from this
+  // pool entirely — so offering them as filter chips would only ever dead-end
+  TAGIDX=allTags().filter(x=>!isCharacter(x));
   return `<div class="filters">
     <input type="search" dir="auto" placeholder="${t('Search text…')}" value="${esc(f.q)}" oninput="setF('q',this.value)">
     <select onchange="setF('world',this.value)"><option value="">${t('all worlds')}</option>${ws.map(w=>`<option ${f.world===w?'selected':''} value="${esc(w)}">${esc(w)}</option>`).join('')}</select>
@@ -746,12 +769,12 @@ function acKey(e,inputId,boxId){
   } else if(e.key==='Escape'){ acClose(); }
 }
 function toggleTagFilter(i){ const t=TAGIDX[i]; setF('tag', norm(state.filters.tag)===norm(t)?'':t); }
-function openTagByName(i){ openTagPage(TAGIDX[i]); }
+function openTagByName(i){ goToTag(TAGIDX[i]); }
 function setF(k,v){ state.filters[k]=v; render(); if(k==='q'){ const el=document.querySelector('input[type=search]'); if(el){el.focus(); el.setSelectionRange(el.value.length,el.value.length);} } }
 function applyFilters(notes){
-  const f=state.filters;
+  const f=state.filters, q=f.q.toLowerCase();
   return notes.filter(n=>
-    (!f.q || n.text.toLowerCase().includes(f.q.toLowerCase())) &&
+    (!f.q || n.text.toLowerCase().includes(q) || (n.tags||[]).some(x=>x.toLowerCase().includes(q))) &&
     (!f.world || n.world===f.world) &&
     (!f.kind || n.kind===f.kind) &&
     (!f.tag || (n.tags||[]).some(t=>norm(t)===norm(f.tag))));
@@ -769,7 +792,7 @@ function noteCard(n){
     <div class="card-text ${n.kind==='dialogue'?'dlg':''}" dir="auto">${esc(n.text)}</div>
     <div class="card-meta">
       ${n.world?`<span class="world-pill" dir="auto">${esc(n.world)}</span>`:''}
-      ${(n.tags||[]).map(x=>{const r=tagRec(x);return `<span class="tag" dir="auto">${r&&r.starred?'★ ':''}${esc(x)}</span>`;}).join('')}
+      ${(n.tags||[]).map(x=>{const r=tagRec(x); const arg=JSON.stringify(x).replace(/"/g,'&quot;'); return `<span class="tag" dir="auto" onclick="event.stopPropagation();goToTag(${arg})">${r&&r.starred?'★ ':''}${esc(x)}</span>`;}).join('')}
       ${seqs.length?`<span class="in-seq">⛓ ${seqs.length} seq</span>`:''}
       ${nLinks?`<span class="in-seq">↔ ${nLinks}</span>`:''}
       <span style="margin-inline-start:auto;font-size:11.5px;color:var(--ink-faint)">${fmtDate(n.createdAt)}</span>
@@ -780,15 +803,16 @@ function noteCard(n){
 function filtersActive(){ const f=state.filters; return !!(f.q||f.world||f.kind||f.tag); }
 function filteredEmpty(){ return `<div class="empty"><b>${t('Nothing matches the current filters.')}</b><br><br><button class="btn" onclick="clearFilters()">${t('Clear filters')}</button></div>`; }
 function viewInbox(){
-  const inbox=applyFilters(state.notes.filter(n=>n.status==='inbox'));
+  const inbox=applyFilters(state.notes.filter(n=>n.status==='inbox'&&!noteIsCharacterScoped(n)));
   return captureBox()+filterBar()+
     (inbox.length?`<div class="grid">${inbox.map(noteCard).join('')}</div>`
     :(filtersActive()?filteredEmpty()
     :`<div class="empty"><b>${t('Inbox zero.')}</b><br>${t('Every spark has been sorted. Drop new ones above.')}</div>`));
 }
 function viewLibrary(){
-  const notes=applyFilters(state.notes);
-  return `<div class="section-h"><h2>${t('Library — every thread')}</h2><span style="color:var(--ink-faint);font-size:13px">${notes.length} / ${state.notes.length} ${t('notes')}</span></div>
+  const pool=state.notes.filter(n=>!noteIsCharacterScoped(n));
+  const notes=applyFilters(pool);
+  return `<div class="section-h"><h2>${t('Library — every thread')}</h2><span style="color:var(--ink-faint);font-size:13px">${notes.length} / ${pool.length} ${t('notes')}</span></div>
     <div class="legend">
       <span class="lg lg-inbox"><span class="ldot"></span>${t('still in inbox')}</span>
       <span class="lg lg-sorted"><span class="ldot"></span>${t('sorted')}</span>
@@ -893,73 +917,93 @@ function bindDrag(){
   });
 }
 
-/* ---- tags: every tag has a page, and pages can nest ---- */
-function openTagPage(tag){
+/* ---- tags: every tag has a page, and pages can nest ----
+   Character tags are their own isolated space: a note carrying one is hidden from
+   Ideas, Library, and the sequence beat-picker (noteIsCharacterScoped below), and
+   lives only on that tag's page. General Tags is a flat, comprehensive index of every
+   tag that exists — for finding one fast, not a second copy of the note pool. */
+function openTagPage(tag,fromView){
   const r=ensureTagRec(tag);
-  state.openTag=r.id; state.view='tags'; render();
+  state.openTag=r.id; state.view=fromView||(r.type==='character'?'tags':'gtags'); render();
 }
-function openTag(id){ state.openTag=id; state.view='tags'; render(); }
+function openTag(id,fromView){ state.openTag=id; state.view=fromView||'tags'; render(); }
 
-function viewTagList(){
-  const pinned=allTagNames().filter(x=>{ const r=tagRec(x); return r&&r.starred; });
-  // character tags render as a tree, and everything reachable from one belongs to that
-  // section — so no tag can show up twice or fall out of both lists
-  const charRoots=rootTags().filter(isCharacter);
-  const claimed=new Set();
-  charRoots.forEach(x=>{ claimed.add(norm(x)); descendantTags(x).forEach(d=>claimed.add(norm(d))); });
-  const rest=allTagNames().filter(x=>!claimed.has(norm(x)));
-  const restRoots=rest.filter(x=>{ const p=parentOf(x); return !p||!rest.some(y=>norm(y)===norm(p)); });
-  return `<div class="section-h"><h2>${t('Tags')}</h2>
-      <button class="btn primary" onclick="newTag()">+ ${t('New tag')}</button></div>
-    <p style="color:var(--ink-dim);font-size:14px;margin-bottom:18px;max-width:66ch">${t('Every tag has a page of its own — write on it, give it an image, pin links, and nest tags under a parent (sub-characters under a character).')}</p>
-    ${pinned.length?`<div class="legend" style="margin-bottom:16px">${pinned.map(p=>`<span class="lg lg-inbox" style="cursor:pointer" onclick="openTagPage(${JSON.stringify(p).replace(/"/g,'&quot;')})">★ ${esc(p)}</span>`).join('')}</div>`:''}
-    ${charRoots.length?`<div class="section-h" style="margin-bottom:10px"><h2>${t('Character tags')}</h2>
-        <span style="color:var(--ink-faint);font-size:13px">${claimed.size}</span></div>
-      <div class="tag-tree" style="margin-bottom:26px">${charRoots.map(x=>tagRow(x,0)).join('')}</div>`:''}
-    ${restRoots.length?`<div class="section-h" style="margin-bottom:10px"><h2>${charRoots.length?t('General tags'):t('All tags')}</h2>
-        <span style="color:var(--ink-faint);font-size:13px">${rest.length}</span></div>
-      <div class="tag-tree">${restRoots.map(x=>tagRow(x,0,null,rest)).join('')}</div>`:''}
-    ${(!charRoots.length&&!restRoots.length)?`<div class="empty"><b>${t('No tags yet.')}</b><br>${t('Tag a note and it appears here.')}</div>`:''}`;
+function viewCharTagList(){
+  const roots=rootTags().filter(isCharacter);
+  const pinned=allTagNames().filter(x=>{ const r=tagRec(x); return r&&r.starred&&isCharacter(x); });
+  return `<div class="section-h"><h2>${t('Character Tags')}</h2>
+      <button class="btn primary" onclick="newTag('character')">+ ${t('New character tag')}</button></div>
+    <p style="color:var(--ink-dim);font-size:14px;margin-bottom:18px;max-width:66ch">${t('A world of its own for your cast. A note written here — or tagged with one of these from Ideas — belongs only to its character: it will not appear in Ideas, Library, or Sequences.')}</p>
+    ${pinned.length?`<div class="legend" style="margin-bottom:16px">${pinned.map(p=>`<span class="lg lg-inbox" style="cursor:pointer" onclick="goToTag(${JSON.stringify(p).replace(/"/g,'&quot;')})">★ ${esc(p)}</span>`).join('')}</div>`:''}
+    ${roots.length?`<div class="tag-tree">${roots.map(x=>tagRow(x,0)).join('')}</div>`
+      :`<div class="empty"><b>${t('No character tags yet.')}</b><br>${t('Create one, or mark an existing tag as a character from its page.')}</div>`}`;
 }
-// `pool` limits which children may be drawn, so a tag claimed by the character tree is
-// never drawn a second time under the general list
-function tagRow(tag,depth,seen,pool){
+function viewGeneralTagList(){
+  const q=norm(state.gtagQuery||'');
+  const all=allTagNames();
+  const hits=q?all.filter(x=>norm(x).includes(q)):all;
+  return `<div class="section-h"><h2>${t('General Tags')}</h2>
+      <button class="btn primary" onclick="newTag('general')">+ ${t('New tag')}</button></div>
+    <p style="color:var(--ink-dim);font-size:14px;margin-bottom:14px;max-width:66ch">${t('Every tag in the vault, for fast lookup. A character tag found here still opens in Character Tags.')}</p>
+    <input type="search" dir="auto" placeholder="${t('Search tags…')}" value="${esc(state.gtagQuery||'')}" oninput="setGtagQuery(this.value)" style="width:100%;margin-bottom:16px">
+    ${hits.length?`<div class="tag-tree">${hits.map(x=>tagRowFlat(x)).join('')}</div>`
+      :(q?`<div class="empty">${t('Nothing matches the current filters.')}</div>`
+         :`<div class="empty"><b>${t('No tags yet.')}</b><br>${t('Tag a note and it appears here.')}</div>`)}`;
+}
+function setGtagQuery(v){ state.gtagQuery=v; render(); const el=document.querySelector('#main input[type=search]'); if(el){ el.focus(); el.setSelectionRange(el.value.length,el.value.length); } }
+function tagRow(tag,depth,seen){
   seen=seen||new Set();
   const k=norm(tag);
   if(seen.has(k)) return '';          // a cycle would otherwise recurse forever
   seen.add(k);
-  const r=tagRec(tag), c=tagCount(tag);
-  let kids=childTags(tag);
-  if(pool) kids=kids.filter(x=>pool.some(y=>norm(y)===norm(x)));
+  const r=tagRec(tag), c=tagCount(tag), kids=childTags(tag);
   const has=r&&(r.description||r.image||(r.refs&&r.refs.length));
   const arg=JSON.stringify(tag).replace(/"/g,'&quot;');
-  return `<div class="tag-row" style="margin-inline-start:${depth*22}px" onclick="openTagPage(${arg})">
+  return `<div class="tag-row" style="margin-inline-start:${depth*22}px" onclick="goToTag(${arg})">
       <span class="tag-dot" style="${isCharacter(tag)?'background:var(--accent2)':''}"></span>
       <span class="tag-name" dir="auto">${r&&r.starred?'★ ':''}${esc(r&&r.title?r.title:tag)}</span>
       <span class="tag-hash" dir="auto">#${esc(tag)}</span>
       <span class="tag-stats">${c} ${c===1?t('note'):t('notes')}${kids.length?` · ${kids.length} ${t('sub-tags')}`:''}${has?' · ✎':''}</span>
-    </div>${kids.map(x=>tagRow(x,depth+1,seen,pool)).join('')}`;
+    </div>${kids.map(x=>tagRow(x,depth+1,seen)).join('')}`;
 }
-function newTag(){
-  const div=document.createElement('div'); div.className='overlay';
+// a flat row for the General Tags index — no nesting, just the fact that this tag
+// exists, what kind it is, and how many notes carry it
+function tagRowFlat(tag){
+  const r=tagRec(tag), c=tagCount(tag), char=isCharacter(tag);
+  const arg=JSON.stringify(tag).replace(/"/g,'&quot;');
+  return `<div class="tag-row" onclick="goToTag(${arg})">
+      <span class="tag-dot" style="${char?'background:var(--accent2)':''}"></span>
+      <span class="tag-name" dir="auto">${r&&r.starred?'★ ':''}${esc(r&&r.title?r.title:tag)}</span>
+      <span class="tag-hash" dir="auto">#${esc(tag)}</span>
+      <span class="tag-stats">${char?t('character'):t('general')} · ${c} ${c===1?t('note'):t('notes')}</span>
+    </div>`;
+}
+function newTag(defaultType){
+  const div=document.createElement('div'); div.className='overlay'; div.dataset.defaultType=defaultType||'general';
   div.onclick=e=>{ if(e.target===div) closeModal(); };
-  div.innerHTML=`<div class="modal"><h3>${t('New tag')}</h3>
+  div.innerHTML=`<div class="modal"><h3>${defaultType==='character'?t('New character tag'):t('New tag')}</h3>
     <div class="frow"><div style="flex:2"><input id="wpNew" dir="auto" list="tagListAll" placeholder="${t('tag name…')}">
       <datalist id="tagListAll">${allTagNames().map(x=>`<option value="${esc(x)}">`).join('')}</datalist></div>
-      <button class="btn primary" style="flex:0" onclick="createTagFromInput()">${t('Create')}</button></div>
+      <button class="btn primary" style="flex:0" onclick="createTagFromInput('${defaultType||'general'}')">${t('Create')}</button></div>
   </div>`;
   document.body.appendChild(div);
   setTimeout(()=>{ const el=document.getElementById('wpNew'); if(el) el.focus(); },30);
 }
-function createTagFromInput(){
+function createTagFromInput(defaultType){
   const v=document.getElementById('wpNew').value.trim();
   if(!v){ toast(t('Name it first')); return; }
-  closeModal(); openTagPage(v);
+  closeModal();
+  const r=ensureTagRec(v);
+  // the "+ New character tag" button is also how an existing general tag gets
+  // promoted; the reverse never happens here, so a character tag is never
+  // silently demoted just because someone typed its name into the other dialog
+  if(defaultType==='character'&&r.type!=='character'){ r.type='character'; r.updatedAt=Date.now(); }
+  openTagPage(v, r.type==='character'?'tags':'gtags');
 }
 
 function viewTagDetail(){
   const r=tagRecById(state.openTag);
-  if(!r){ state.openTag=null; return viewTagList(); }
+  if(!r){ state.openTag=null; return state.view==='gtags'?viewGeneralTagList():viewCharTagList(); }
   const own=notesWithTag(r.tag);
   const kids=childTags(r.tag);
   const deep=descendantTags(r.tag);
@@ -972,12 +1016,13 @@ function viewTagDetail(){
   const chain=[]; let p=r.parent;
   const guard=new Set();
   while(p && !guard.has(norm(p))){ guard.add(norm(p)); chain.unshift(p); p=parentOf(p); }
-  return `<button class="btn ghost" onclick="state.openTag=null;render()">${t('← All tags')}</button>
+  return `<button class="btn ghost" onclick="state.openTag=null;render()">${state.view==='tags'?t('← All character tags'):t('← All general tags')}</button>
   <div style="height:12px"></div>
   <div class="seq-hero" ${r.image?`style="background-image:url('${esc(r.image)}')"`:''}>
     <div class="seq-hero-inner">
-      ${chain.length?`<div class="tag-crumb">${chain.map(x=>`<span onclick="openTagPage(${JSON.stringify(x).replace(/"/g,'&quot;')})">${esc(x)}</span>`).join(' / ')} /</div>`:''}
+      ${chain.length?`<div class="tag-crumb">${chain.map(x=>`<span onclick="goToTag(${JSON.stringify(x).replace(/"/g,'&quot;')})">${esc(x)}</span>`).join(' / ')} /</div>`:''}
       <div style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:6px">${t('Tag')} · #${esc(r.tag)}</div>
+      ${r.type==='character'?`<div style="font-size:13px;color:var(--accent2);margin-bottom:10px">${t('Private to this character — notes here do not appear in Ideas, Library, or Sequences.')}</div>`:''}
       <input class="title" dir="auto" placeholder="${t('Title…')}" value="${esc(r.title||'')}" onchange="updTag('${r.id}','title',this.value)">
       <textarea dir="auto" style="min-height:120px" placeholder="${t('Write about this tag — who they are, what it means, anything you would put in an idea.')}" onchange="updTag('${r.id}','description',this.value)">${esc(r.description||'')}</textarea>
       <div class="seq-hero-row">
@@ -1195,7 +1240,7 @@ function openPicker(seqId){
 function pickSuggest(seqId,q){
   const s=seqById(seqId); if(!s) return;
   const used=new Set(s.beats.map(b=>b.noteId));
-  const hits=state.notes.filter(n=>!used.has(n.id)&&(!q.trim()||n.text.toLowerCase().includes(q.toLowerCase()))).slice(0,20);
+  const hits=state.notes.filter(n=>!used.has(n.id)&&!noteIsCharacterScoped(n)&&(!q.trim()||n.text.toLowerCase().includes(q.toLowerCase()))).slice(0,20);
   document.getElementById('pickList').innerHTML =
     hits.map(h=>`<div class="pick-row" dir="auto" onclick="addBeat('${seqId}','${h.id}')"><span class="kind kind-${h.kind}">${t(h.kind)}</span> ${esc(h.text.slice(0,110))}</div>`).join('')
     || `<div class="empty" style="padding:20px">${t('No unused notes match.')}</div>`;
@@ -1375,7 +1420,7 @@ async function pushToServer(){
 }
 function mergeVaults(local,remote){
   const out=blank();
-  out.view=local.view; out.filters=local.filters; out.openSeq=local.openSeq; out.openTag=local.openTag;
+  out.view=local.view; out.filters=local.filters; out.openSeq=local.openSeq; out.openTag=local.openTag; out.gtagQuery=local.gtagQuery;
   out.deleted=Object.assign({},remote.deleted||{});
   Object.entries(local.deleted||{}).forEach(([k,t])=>{ if(!out.deleted[k]||t>out.deleted[k]) out.deleted[k]=t; });
   const wm=new Map();
@@ -1544,7 +1589,7 @@ async function cloudPush(){
   }
 }
 // which tab/filter you're looking at is yours alone — never sync it
-function stripUi(s){ const o=Object.assign({},s); delete o.view; delete o.openSeq; delete o.openTag; delete o.filters; return o; }
+function stripUi(s){ const o=Object.assign({},s); delete o.view; delete o.openSeq; delete o.openTag; delete o.gtagQuery; delete o.filters; return o; }
 function startCloudWatch(){
   setInterval(()=>{ if(document.visibilityState==='visible') cloudPull(true); },45000);
   window.addEventListener('focus',()=>cloudPull(true));
