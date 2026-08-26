@@ -105,18 +105,23 @@ vault folder). Each file becomes one inbox note titled by its filename. It under
   world field is pre-filled from the notes already there.
 - **Pinned tags** — the ☆ on a tag page marks it important; pinned tags appear as chips at
   the top of their section and get a ★ wherever that tag is shown.
-- **Multi-select, Gmail-style** — every note card, wherever it appears (Ideas,
-  Library, and a tag’s own "Notes tagged" / "From sub-tags" grids), has a checkbox in
-  its corner. Once anything is checked, an action bar appears: Select all shown, Add
-  tag…, Set world…, Add to sequence…, Mark sorted, Delete, and Clear. Bulk actions apply
-  to every checked note at once (e.g. tagging five sparks with one motif in one step, or
-  weaving several of a character’s private notes into a sequence straight from their tag
-  page). Add to sequence only ever lists sequences that already exist — there is no
-  "create new" shortcut here, that stays under Sequences on purpose. Selection is
-  per-device and forgotten when you switch tabs — it never syncs and checking a box
-  never triggers a save to GitHub.
-- **Tags are case-insensitive** — "Opening" and "opening" are the same tag; the first
-  spelling used is kept as the display form, so slips can't fragment your canon.
+- **Multi-select everywhere, Gmail-style** — every section has it: notes (Ideas,
+  Library, a tag’s own note grids), sequences, and tags (Character and General) all show
+  a checkbox once you start selecting, with an action bar tailored to what you checked:
+  - **Notes**: Add tag…, Set world…, Add to sequence… (existing sequences only — there
+    is no "create new" shortcut outside Sequences), Mark sorted, Move to Trash.
+  - **Sequences**: Move to Trash.
+  - **Tags**: Mark as character, Mark as general, Add notes to sequence… (gathers every
+    note carrying any of the selected tags — select a character and its sub-tags together
+    to sweep up all of their notes at once — into one existing sequence), Move to Trash.
+  Selection is per-device, forgotten on tab switch, never synced, and never triggers a
+  save to GitHub by itself.
+- **Trash** — the 6th tab. Every delete, single or bulk, lands here first: notes,
+  sequences, and tag pages alike, each showing what it was and when it was removed.
+  Restore puts it back exactly where it lived (and safely overrides a stale tombstone
+  from another device, if it comes to that); Delete forever removes it for good.
+  Untouched items age out automatically after 30 days.
+
 
 Roadmap (comic / webapp / 3D world paths): see the published Storyloom Roadmap artifact.
 

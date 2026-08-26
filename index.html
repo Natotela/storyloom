@@ -208,7 +208,8 @@
 
   /* sequences */
   .seq-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
-  .seq-card{border-radius:var(--radius);overflow:hidden;border:1px solid var(--line);cursor:pointer;background:var(--panel);transition:border-color .15s}
+  .seq-card{position:relative;border-radius:var(--radius);overflow:hidden;border:1px solid var(--line);cursor:pointer;background:var(--panel);transition:border-color .15s}
+  .seq-card.selected{outline:2px solid var(--accent2);outline-offset:1px}
   .seq-card:hover{border-color:var(--accent)}
   .seq-cover{height:110px;background-size:cover;background-position:center;background-color:var(--panel2);display:flex;align-items:flex-end}
   .seq-cover-shade{width:100%;padding:10px 14px;background:linear-gradient(transparent,var(--cover-shade))}
@@ -303,11 +304,35 @@ function load(){
 }
 // tag pages were called Warps before they gained hierarchy and free text
 function migrate(v){ if(v && v.warps && !v.tags){ v.tags=v.warps; delete v.warps; } return v; }
-function blank(){ return {notes:[],sequences:[],links:[],tags:[],deleted:{},view:'inbox',openSeq:null,openTag:null,gtagQuery:'',selectedIds:[],filters:{q:'',world:'',kind:'',tag:''}}; }
+function blank(){ return {notes:[],sequences:[],links:[],tags:[],trash:[],deleted:{},view:'inbox',openSeq:null,openTag:null,gtagQuery:'',selectedIds:[],filters:{q:'',world:'',kind:'',tag:''}}; }
 // A deletion has to be a fact that travels, not just an absence — otherwise the other
 // device still has the item and the merge hands it straight back. tomb() records when
 // something died; the merge then drops it everywhere.
 function tomb(id){ if(!state.deleted) state.deleted={}; state.deleted[id]=Date.now(); }
+// Move a live object to Trash: keep its full data so it can be restored, and still
+// tomb() it so it disappears everywhere else and cannot be resurrected by a stale sync.
+function trashIt(kind,obj){
+  if(!state.trash) state.trash=[];
+  state.trash.unshift({id:obj.id,kind,data:obj,deletedAt:Date.now()});
+  tomb(obj.id);
+}
+function restoreFromTrash(trashId){
+  const i=(state.trash||[]).findIndex(x=>x.id===trashId);
+  if(i<0) return;
+  const entry=state.trash[i];
+  const obj=entry.data; obj.updatedAt=Date.now();  // fresh edit beats the old tombstone on sync
+  if(entry.kind==='note') state.notes.unshift(obj);
+  else if(entry.kind==='sequence') state.sequences.unshift(obj);
+  else if(entry.kind==='tag') state.tags.unshift(obj);
+  delete state.deleted[entry.id];
+  state.trash.splice(i,1);
+  render(); toast(t('Restored'));
+}
+function purgeTrash(trashId){
+  if(!confirm(t('Delete forever? This cannot be undone.'))) return;
+  state.trash=(state.trash||[]).filter(x=>x.id!==trashId);
+  render();
+}
 let serverMode=false, cloudMode=false, pushTimer=null, suppressSync=false;
 function save(){
   try{ localStorage.setItem(KEY, JSON.stringify(state)); }
@@ -420,6 +445,7 @@ function renderView(){
   else if(state.view==='sequences') m.innerHTML = state.openSeq ? viewSeqDetail() : viewSeqList();
   else if(state.view==='tags') m.innerHTML = state.openTag ? viewTagDetail() : viewCharTagList();
   else if(state.view==='gtags') m.innerHTML = state.openTag ? viewTagDetail() : viewGeneralTagList();
+  else if(state.view==='trash') m.innerHTML = viewTrash();
   bindDrag();
 }
 const I18N={he:{
@@ -624,7 +650,22 @@ const I18N={he:{
  "Mark sorted": "סימון כממוין",
  "Clear": "ניקוי",
  "Delete {n} notes?": "למחוק {n} הערות?",
- "No sequences yet — create one under Sequences first.": "אין עדיין רצפים — צרו אחד תחת רצפים קודם."
+ "No sequences yet — create one under Sequences first.": "אין עדיין רצפים — צרו אחד תחת רצפים קודם.",
+ "Restored": "שוחזר",
+ "Delete forever? This cannot be undone.": "למחוק לצמיתות? לא ניתן לבטל פעולה זו.",
+ "Trash": "פח",
+ "Move to Trash": "העברה לפח",
+ "Mark as character": "סימון כדמות",
+ "Mark as general": "סימון ככללית",
+ "Add notes to sequence…": "הוספת הערות לרצף…",
+ "Restore": "שחזור",
+ "Delete forever": "מחיקה לצמיתות",
+ "Send {n} notes to Trash?": "להעביר {n} הערות לפח?",
+ "Moved to Trash 🗑": "הועבר לפח 🗑",
+ "Send {n} sequences to Trash?": "להעביר {n} רצפים לפח?",
+ "Send {n} tags to Trash?": "להעביר {n} תגיות לפח?",
+ "Kept for 30 days, then removed for good.": "נשמר 30 יום, ואז מוסר לצמיתות.",
+ "Trash is empty.": "הפח ריק."
 }};
 /* ---- interface language ---------------------------------------------------
    Note *content* always decides its own direction via dir="auto" (so an English
@@ -664,6 +705,7 @@ function renderNav(){
     ['sequences',t('Sequences')],
     ['tags',t('Character Tags')],
     ['gtags',t('General Tags')],
+    ['trash',`${t('Trash')}${(state.trash||[]).length?`<span class="count">${state.trash.length}</span>`:''}`],
   ].map(([v,label])=>`<button class="${state.view===v?'active':''}" onclick="go('${v}')">${label}</button>`).join('');
 }
 // Clicking a top-level tab always returns to that section's root listing.
@@ -846,34 +888,53 @@ function selectAllShown(ids){
 }
 // only the ids from THIS list count toward "selected" here, so a stray id from a
 // list you've since navigated away from can never inflate the count
-function selectionBar(ids){
+// mode picks which bulk actions make sense for what's being selected:
+// 'notes' (Ideas/Library/a tag's own note grids), 'sequences' (the Sequences list),
+// 'tags' (Character/General Tags lists), 'trash' (the bin itself).
+function selectionBar(ids,mode){
+  mode=mode||'notes';
   const sel=state.selectedIds.filter(id=>ids.includes(id));
   if(!sel.length) return '';
   const allOn=ids.length>0&&ids.every(id=>state.selectedIds.includes(id));
   const arg=JSON.stringify(ids).replace(/"/g,'&quot;');
+  const actions={
+    notes:`<button class="btn" onclick="bulkAddTag()">🏷 ${t('Add tag…')}</button>
+      <button class="btn" onclick="bulkSetWorld()">🌍 ${t('Set world…')}</button>
+      <button class="btn" onclick="bulkAddToSequence()">⛓ ${t('Add to sequence…')}</button>
+      <button class="btn" onclick="bulkMarkSorted()">✓ ${t('Mark sorted')}</button>
+      <button class="btn danger" onclick="bulkDelete()">🗑 ${t('Move to Trash')}</button>`,
+    sequences:`<button class="btn danger" onclick="bulkDeleteSequences()">🗑 ${t('Move to Trash')}</button>`,
+    tags:`<button class="btn" onclick="bulkSetTagType('character')">${t('Mark as character')}</button>
+      <button class="btn" onclick="bulkSetTagType('general')">${t('Mark as general')}</button>
+      <button class="btn" onclick="bulkTagsToSequence()">⛓ ${t('Add notes to sequence…')}</button>
+      <button class="btn danger" onclick="bulkDeleteTags()">🗑 ${t('Move to Trash')}</button>`,
+    trash:`<button class="btn" onclick="bulkRestore()">↺ ${t('Restore')}</button>
+      <button class="btn danger" onclick="bulkPurge()">${t('Delete forever')}</button>`
+  };
   return `<div class="selbar">
     <b>${sel.length} ${t('selected')}</b>
     <span class="sel-all" onclick="selectAllShown(${arg})"><input type="checkbox" ${allOn?'checked':''} onclick="event.stopPropagation();event.preventDefault();selectAllShown(${arg})">${t('Select all shown')}</span>
     <span class="spacer"></span>
-    <button class="btn" onclick="bulkAddTag()">🏷 ${t('Add tag…')}</button>
-    <button class="btn" onclick="bulkSetWorld()">🌍 ${t('Set world…')}</button>
-    <button class="btn" onclick="bulkAddToSequence()">⛓ ${t('Add to sequence…')}</button>
-    <button class="btn" onclick="bulkMarkSorted()">✓ ${t('Mark sorted')}</button>
-    <button class="btn danger" onclick="bulkDelete()">🗑 ${t('Delete')}</button>
+    ${actions[mode]||''}
     <button class="btn ghost" onclick="clearSelection()">✕ ${t('Clear')}</button>
   </div>`;
 }
 function selectedNotes(){ return state.notes.filter(n=>state.selectedIds.includes(n.id)); }
+function selectedSequences(){ return state.sequences.filter(s=>state.selectedIds.includes(s.id)); }
+// tag rows are checked by tag NAME, not a record id — most tags have no record yet
+// (one is only created when something is actually written on the page), and
+// rendering a checkbox is not a reason to silently create one for every tag shown
+function selectedTagNames(){ return [...state.selectedIds]; }
 function bulkDelete(){
   const ns=selectedNotes(); if(!ns.length) return;
-  if(!confirm(t('Delete {n} notes?').replace('{n}',ns.length))) return;
+  if(!confirm(t('Send {n} notes to Trash?').replace('{n}',ns.length))) return;
   const ids=new Set(ns.map(n=>n.id));
-  ns.forEach(n=>tomb(n.id));
+  ns.forEach(n=>trashIt('note',n));
   state.notes=state.notes.filter(n=>!ids.has(n.id));
   state.sequences.forEach(s=>{ const b0=s.beats.length; s.beats=s.beats.filter(b=>!ids.has(b.noteId)); if(s.beats.length!==b0) s.updatedAt=Date.now(); });
   state.links=state.links.filter(l=>!ids.has(l.from)&&!ids.has(l.to));
   state.selectedIds=[];
-  render(); toast(t('Saved'));
+  render(); toast(t('Moved to Trash 🗑'));
 }
 function bulkAddTag(){
   const ns=selectedNotes(); if(!ns.length) return;
@@ -894,6 +955,68 @@ function bulkMarkSorted(){
   const ns=selectedNotes().filter(n=>n.status==='inbox'); if(!ns.length){ toast(t('Saved')); return; }
   ns.forEach(n=>{ n.status='sorted'; n.updatedAt=Date.now(); });
   render(); toast(t('Saved'));
+}
+function bulkDeleteSequences(){
+  const ss=selectedSequences(); if(!ss.length) return;
+  if(!confirm(t('Send {n} sequences to Trash?').replace('{n}',ss.length))) return;
+  ss.forEach(s=>trashIt('sequence',s));
+  const ids=new Set(ss.map(s=>s.id));
+  state.sequences=state.sequences.filter(s=>!ids.has(s.id));
+  state.selectedIds=[];
+  render(); toast(t('Moved to Trash 🗑'));
+}
+function bulkDeleteTags(){
+  const names=selectedTagNames(); if(!names.length) return;
+  if(!confirm(t('Send {n} tags to Trash?').replace('{n}',names.length))) return;
+  names.forEach(name=>{
+    const r=tagRec(name); if(!r) return; // never visited — nothing to trash
+    const orphan=norm(r.tag);
+    (state.tags||[]).forEach(x=>{ if(norm(x.parent)===orphan){ x.parent=r.parent||''; x.updatedAt=Date.now(); } });
+    trashIt('tag',r);
+  });
+  const ids=new Set((state.tags||[]).filter(r=>names.includes(r.tag)).map(r=>r.id));
+  state.tags=(state.tags||[]).filter(r=>!ids.has(r.id));
+  state.selectedIds=[];
+  render(); toast(t('Moved to Trash 🗑'));
+}
+function bulkSetTagType(type){
+  const names=selectedTagNames(); if(!names.length) return;
+  names.forEach(name=>{ const r=ensureTagRec(name); r.type=type; r.updatedAt=Date.now(); });
+  state.selectedIds=[];
+  render(); toast(t('Saved'));
+}
+// Every note carrying ANY of the selected tags — select a parent and its children
+// together to sweep up their notes in one pass.
+function notesForTags(names){
+  const set=new Set();
+  names.forEach(name=>notesWithTag(name).forEach(n=>set.add(n)));
+  return [...set];
+}
+function bulkTagsToSequence(){
+  const names=selectedTagNames();
+  const ns=notesForTags(names);
+  if(!ns.length){ toast(t('No notes carry this tag yet.')); return; }
+  const div=document.createElement('div'); div.className='overlay';
+  div.onclick=e=>{ if(e.target===div) closeModal(); };
+  div.innerHTML=`<div class="modal"><h3>${t('Add notes to sequence…')}</h3>
+    <p style="font-size:13.5px;color:var(--ink-dim);margin-bottom:10px">${ns.length} ${t('notes')}</p>
+    <div class="picker">${state.sequences.map(s=>`<div class="pick-row" dir="auto" onclick="bulkTagsToSequenceConfirm('${s.id}')">${esc(s.title||t('Untitled'))} <span style="color:var(--ink-faint);font-size:12.5px">· ${s.beats.length} ${t('beats')}</span></div>`).join('')
+      || `<div class="empty" style="padding:20px">${t('No sequences yet — create one under Sequences first.')}</div>`}</div>
+  </div>`;
+  document.body.appendChild(div);
+}
+function bulkTagsToSequenceConfirm(seqId){
+  const s=seqById(seqId); if(!s){ closeModal(); return; }
+  const ns=notesForTags(selectedTagNames());
+  const used=new Set(s.beats.map(b=>b.noteId));
+  ns.forEach(n=>{
+    if(used.has(n.id)) return;
+    s.beats.push({noteId:n.id,time:''}); used.add(n.id);
+    if(n.status==='inbox'){ n.status='sorted'; n.updatedAt=Date.now(); }
+  });
+  s.updatedAt=Date.now();
+  state.selectedIds=[];
+  closeModal(); render(); toast(t('Beat added — now give it a moment in time'));
 }
 function bulkAddToSequence(){
   // deliberately selecting notes here (including a character's own, private ones)
@@ -924,6 +1047,53 @@ function bulkAddToSequenceConfirm(seqId){
   state.selectedIds=[];
   closeModal(); render(); toast(t('Beat added — now give it a moment in time'));
 }
+
+/* ---- trash: every delete anywhere lands here first, recoverable for 30 days ---- */
+function trashPreview(entry){
+  const d=entry.data;
+  if(entry.kind==='note') return esc((d.text||'').slice(0,90));
+  if(entry.kind==='sequence') return esc(d.title||t('Untitled'));
+  return '#'+esc(d.tag);
+}
+const TRASH_KIND_LABEL={note:'note',sequence:'sequence',tag:'Tag'};
+function viewTrash(){
+  const items=state.trash||[];
+  const ids=items.map(x=>x.id);
+  return `<div class="section-h"><h2>${t('Trash')}</h2>
+      <span style="color:var(--ink-faint);font-size:13px">${t('Kept for 30 days, then removed for good.')}</span></div>
+    ${selectionBar(ids,'trash')}
+    ${items.length?`<div class="tag-tree">${items.map(x=>`
+      <div class="tag-row" style="cursor:default">
+        <input type="checkbox" class="card-check" style="position:static" ${state.selectedIds.includes(x.id)?'checked':''} onclick="toggleSelect('${x.id}')" title="${t('Select')}">
+        <span class="kind kind-${x.kind==='note'?(x.data.kind||'spark'):'ref'}">${t(TRASH_KIND_LABEL[x.kind])}</span>
+        <span class="tag-name" dir="auto" style="font-family:inherit;font-size:14px;font-weight:400;flex:1">${trashPreview(x)}</span>
+        <span class="tag-stats">${fmtDate(x.deletedAt)}</span>
+        <button class="btn" onclick="restoreFromTrash('${x.id}')">↺ ${t('Restore')}</button>
+        <button class="btn danger" onclick="purgeTrash('${x.id}')">${t('Delete forever')}</button>
+      </div>`).join('')}</div>`
+    :`<div class="empty"><b>${t('Trash is empty.')}</b></div>`}`;
+}
+function bulkRestore(){
+  const items=(state.trash||[]).filter(x=>state.selectedIds.includes(x.id));
+  items.forEach(x=>{ const obj=x.data; obj.updatedAt=Date.now();
+    if(x.kind==='note') state.notes.unshift(obj);
+    else if(x.kind==='sequence') state.sequences.unshift(obj);
+    else if(x.kind==='tag') state.tags.unshift(obj);
+    delete state.deleted[x.id];
+  });
+  const ids=new Set(items.map(x=>x.id));
+  state.trash=(state.trash||[]).filter(x=>!ids.has(x.id));
+  state.selectedIds=[];
+  render(); toast(t('Restored'));
+}
+function bulkPurge(){
+  const ids=new Set(state.selectedIds);
+  if(!ids.size) return;
+  if(!confirm(t('Delete forever? This cannot be undone.'))) return;
+  state.trash=(state.trash||[]).filter(x=>!ids.has(x.id));
+  state.selectedIds=[];
+  render();
+}
 function viewInbox(){
   const inbox=applyFilters(state.notes.filter(n=>n.status==='inbox'&&!noteIsCharacterScoped(n)));
   return captureBox()+filterBar()+selectionBar(inbox.map(n=>n.id))+
@@ -945,9 +1115,12 @@ function viewLibrary(){
 }
 function seqBg(s){ return s.image || s.bgUrl || ''; }
 function viewSeqList(){
+  const ids=state.sequences.map(s=>s.id);
   return `<div class="section-h"><h2>${t('Sequences — the weaves')}</h2><button class="btn primary" onclick="newSeq()">${t('+ New sequence')}</button></div>
+    ${selectionBar(ids,'sequences')}
     <div class="seq-grid">${state.sequences.map(s=>`
-      <div class="seq-card" onclick="openSeq('${s.id}')">
+      <div class="seq-card ${state.selectedIds.includes(s.id)?'selected':''}" onclick="openSeq('${s.id}')">
+        <input type="checkbox" class="card-check" ${state.selectedIds.includes(s.id)?'checked':''} onclick="event.stopPropagation();toggleSelect('${s.id}')" title="${t('Select')}">
         <div class="seq-cover" ${seqBg(s)?`style="background-image:url('${esc(seqBg(s))}')"`:''}>
           <div class="seq-cover-shade"><div class="seq-title" dir="auto">${esc(s.title)||t('Untitled')}</div></div>
         </div>
@@ -1019,8 +1192,10 @@ function removeSeqImage(id){ const s=seqById(id); if(s){ s.image=null; s.updated
 function updBeat(sid,i,v){ const s=seqById(sid); if(s&&s.beats[i]){ s.beats[i].time=v; s.updatedAt=Date.now(); save(); } }
 function moveBeat(sid,i,d){ const s=seqById(sid); const j=i+d; if(!s||j<0||j>=s.beats.length) return; [s.beats[i],s.beats[j]]=[s.beats[j],s.beats[i]]; s.updatedAt=Date.now(); render(); }
 function rmBeat(sid,i){ const s=seqById(sid); if(s){ s.beats.splice(i,1); s.updatedAt=Date.now(); render(); } }
-function delSeq(id){ if(!confirm(t('Delete this sequence? (Notes stay in the library.)'))) return;
-  tomb(id); state.sequences=state.sequences.filter(s=>s.id!==id); state.openSeq=null; render(); }
+function delSeq(id){
+  const s=seqById(id); if(!s) return;
+  if(!confirm(t('Delete this sequence? (Notes stay in the library.)'))) return;
+  trashIt('sequence',s); state.sequences=state.sequences.filter(x=>x.id!==id); state.openSeq=null; render(); }
 
 /* drag reorder beats */
 let dragIdx=null;
@@ -1061,6 +1236,7 @@ function viewCharTagList(){
       <button class="btn primary" onclick="newTag('tags')">+ ${t('New tag')}</button></div>
     <p style="color:var(--ink-dim);font-size:14px;margin-bottom:18px;max-width:66ch">${t('Every tag has a page of its own — write on it, give it an image, pin links, and nest tags under a parent (sub-characters under a character). Mark a tag as a character on its own page to give it a private space: its notes stop appearing in Ideas, Library, and Sequences.')}</p>
     ${pinned.length?`<div class="legend" style="margin-bottom:16px">${pinned.map(p=>`<span class="lg lg-inbox" style="cursor:pointer" onclick="openTagStay(${JSON.stringify(p).replace(/"/g,'&quot;')})">★ ${esc(p)}</span>`).join('')}</div>`:''}
+    ${selectionBar(allTagNames(),'tags')}
     ${roots.length?`<div class="tag-tree">${roots.map(x=>tagRow(x,0)).join('')}</div>`
       :`<div class="empty"><b>${t('No tags yet.')}</b><br>${t('Tag a note and it appears here.')}</div>`}`;
 }
@@ -1072,6 +1248,7 @@ function viewGeneralTagList(){
       <button class="btn primary" onclick="newTag('gtags')">+ ${t('New tag')}</button></div>
     <p style="color:var(--ink-dim);font-size:14px;margin-bottom:14px;max-width:66ch">${t('Every tag in the vault, for fast lookup by name.')}</p>
     <input type="search" dir="auto" placeholder="${t('Search tags…')}" value="${esc(state.gtagQuery||'')}" oninput="setGtagQuery(this.value)" style="width:100%;margin-bottom:16px">
+    ${selectionBar(hits,'tags')}
     ${hits.length?`<div class="tag-tree">${hits.map(x=>tagRowFlat(x)).join('')}</div>`
       :(q?`<div class="empty">${t('Nothing matches the current filters.')}</div>`
          :`<div class="empty"><b>${t('No tags yet.')}</b><br>${t('Tag a note and it appears here.')}</div>`)}`;
@@ -1086,6 +1263,7 @@ function tagRow(tag,depth,seen){
   const has=r&&(r.description||r.image||(r.refs&&r.refs.length));
   const arg=JSON.stringify(tag).replace(/"/g,'&quot;');
   return `<div class="tag-row" style="margin-inline-start:${depth*22}px" onclick="openTagStay(${arg})">
+      <input type="checkbox" class="card-check" style="position:static" ${state.selectedIds.includes(tag)?'checked':''} onclick="event.stopPropagation();toggleSelect(${arg})" title="${t('Select')}">
       <span class="tag-dot" style="${isCharacter(tag)?'background:var(--accent2)':''}"></span>
       <span class="tag-name" dir="auto">${r&&r.starred?'★ ':''}${esc(r&&r.title?r.title:tag)}</span>
       <span class="tag-hash" dir="auto">#${esc(tag)}</span>
@@ -1098,6 +1276,7 @@ function tagRowFlat(tag){
   const r=tagRec(tag), c=tagCount(tag), char=isCharacter(tag);
   const arg=JSON.stringify(tag).replace(/"/g,'&quot;');
   return `<div class="tag-row" onclick="openTagStay(${arg})">
+      <input type="checkbox" class="card-check" style="position:static" ${state.selectedIds.includes(tag)?'checked':''} onclick="event.stopPropagation();toggleSelect(${arg})" title="${t('Select')}">
       <span class="tag-dot" style="${char?'background:var(--accent2)':''}"></span>
       <span class="tag-name" dir="auto">${r&&r.starred?'★ ':''}${esc(r&&r.title?r.title:tag)}</span>
       <span class="tag-hash" dir="auto">#${esc(tag)}</span>
@@ -1265,7 +1444,7 @@ function delTagPage(id){
   if(!confirm(t('Delete this tag page?')+'\n\n'+t('The tag itself and every note using it stay — only this page, its text and pinned links go.'))) return;
   const orphan=norm(r.tag);
   (state.tags||[]).forEach(x=>{ if(norm(x.parent)===orphan){ x.parent=r.parent||''; x.updatedAt=Date.now(); } });
-  tomb(id);
+  trashIt('tag',r);
   state.tags=state.tags.filter(x=>x.id!==id); state.openTag=null; render();
 }
 
@@ -1331,8 +1510,9 @@ function saveNote(id){
   closeModal(); render(); toast(t('Saved'));
 }
 function delNote(id){
+  const n0=byId(id); if(!n0) return;
   if(!confirm(t('Delete this note everywhere (library, sequences, links)?'))) return;
-  tomb(id);
+  trashIt('note',n0);
   state.notes=state.notes.filter(n=>n.id!==id);
   state.sequences.forEach(s=>{ const b0=s.beats.length; s.beats=s.beats.filter(b=>b.noteId!==id); if(s.beats.length!==b0) s.updatedAt=Date.now(); });
   state.links=state.links.filter(l=>l.from!==id&&l.to!==id);
@@ -1565,6 +1745,10 @@ function mergeVaults(local,remote){
     const k=[l.from,l.to].sort().join('|');
     if(seen.has(k)) return false; seen.add(k); return true;
   });
+  const trm=new Map();
+  (remote.trash||[]).forEach(x=>trm.set(x.id,x));
+  (local.trash||[]).forEach(x=>{ const ex=trm.get(x.id); if(!ex||(x.deletedAt||0)>=(ex.deletedAt||0)) trm.set(x.id,x); });
+  out.trash=[...trm.values()];
   return applyTombstones(dedupeByText(out));
 }
 // Anything whose tombstone is newer than its last edit is gone for good — on every
@@ -1583,6 +1767,15 @@ function applyTombstones(v){
   // device has long since synced the deletion
   const cutoff=Date.now()-180*24*3600*1000;
   Object.keys(d).forEach(k=>{ if(d[k]<cutoff) delete d[k]; });
+  // A tombstone timestamp can outlive a restore forever (the deleted-map merge only
+  // ever unions, never un-tombs) — so checking "is this id still tombstoned" cannot
+  // tell a truly-dead item from one that was restored on another device and simply
+  // still carries an old timestamp on record. Checking "is this id currently alive
+  // in the merged vault" is the reliable version of the same question. Entries past
+  // 30 days age out of the bin regardless, same as long-forgotten tombstones.
+  const aliveAny=new Set([...v.notes,...v.sequences,...v.tags].map(o=>o.id));
+  const trashCutoff=Date.now()-30*24*3600*1000;
+  v.trash=(v.trash||[]).filter(x=>!aliveAny.has(x.id) && x.deletedAt>trashCutoff);
   return v;
 }
 // Two devices can hold the same note under different ids (e.g. both got the demo
