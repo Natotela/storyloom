@@ -623,7 +623,8 @@ const I18N={he:{
  "Add to sequence…": "הוספה לרצף…",
  "Mark sorted": "סימון כממוין",
  "Clear": "ניקוי",
- "Delete {n} notes?": "למחוק {n} הערות?"
+ "Delete {n} notes?": "למחוק {n} הערות?",
+ "No sequences yet — create one under Sequences first.": "אין עדיין רצפים — צרו אחד תחת רצפים קודם."
 }};
 /* ---- interface language ---------------------------------------------------
    Note *content* always decides its own direction via dir="auto" (so an English
@@ -895,19 +896,23 @@ function bulkMarkSorted(){
   render(); toast(t('Saved'));
 }
 function bulkAddToSequence(){
-  const ns=selectedNotes().filter(n=>!noteIsCharacterScoped(n));
-  if(!ns.length){ toast(t('No unused notes match.')); return; }
+  // deliberately selecting notes here (including a character's own, private ones)
+  // and choosing to weave them in is an explicit act, unlike the passive beat-picker
+  // search — so isolation does not block it. Only EXISTING sequences are offered;
+  // there is no "create new" shortcut here on purpose, that only happens under Sequences.
+  const ns=selectedNotes();
+  if(!ns.length) return;
   const div=document.createElement('div'); div.className='overlay';
   div.onclick=e=>{ if(e.target===div) closeModal(); };
   div.innerHTML=`<div class="modal"><h3>${t('Add to sequence…')}</h3>
     <div class="picker">${state.sequences.map(s=>`<div class="pick-row" dir="auto" onclick="bulkAddToSequenceConfirm('${s.id}')">${esc(s.title||t('Untitled'))} <span style="color:var(--ink-faint);font-size:12.5px">· ${s.beats.length} ${t('beats')}</span></div>`).join('')
-      || `<div class="empty" style="padding:20px">${t('No sequences yet.')}</div>`}</div>
+      || `<div class="empty" style="padding:20px">${t('No sequences yet — create one under Sequences first.')}</div>`}</div>
   </div>`;
   document.body.appendChild(div);
 }
 function bulkAddToSequenceConfirm(seqId){
   const s=seqById(seqId); if(!s){ closeModal(); return; }
-  const ns=selectedNotes().filter(n=>!noteIsCharacterScoped(n));
+  const ns=selectedNotes();
   const used=new Set(s.beats.map(b=>b.noteId));
   let added=0;
   ns.forEach(n=>{
@@ -1197,6 +1202,7 @@ function viewTagDetail(){
     </div>
     <div class="hint">${t('It is tagged')} <b>#${esc(r.tag)}</b> ${t('automatically and appears below.')}</div>
   </div>
+  ${selectionBar(own.concat(inherited).map(n=>n.id))}
   ${own.length?`<div class="grid">${own.map(noteCard).join('')}</div>`
     :`<div class="empty">${t('No notes carry this tag yet.')} ${t('Tag a note')} <b>${esc(r.tag)}</b> ${t('and it appears here automatically.')}</div>`}
 
