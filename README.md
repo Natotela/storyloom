@@ -117,7 +117,7 @@ vault folder). Each file becomes one inbox note titled by its filename. It under
   Library, a tag’s own note grids), sequences, and tags (Character and General) all show
   a checkbox once you start selecting, with an action bar tailored to what you checked:
   - **Notes**: Add tag…, Set world…, Add to sequence… (existing sequences only — there
-    is no "create new" shortcut outside Sequences), Mark sorted, Move to Trash.
+    is no "create new" shortcut outside Sequences), Mark sorted, Back to Ideas, Move to Trash.
   - **Sequences**: Move to Trash.
   - **Tags**: Mark as character, Mark as general, Add notes to sequence… (gathers every
     note carrying any of the selected tags — select a character and its sub-tags together

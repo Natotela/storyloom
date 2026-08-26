@@ -168,7 +168,13 @@
     padding:3px 9px;border-radius:6px;background:var(--st);color:var(--chip-on-ink);white-space:nowrap}
   .card-img{width:calc(100% + 28px);margin:-19px -14px 0;border-radius:0;max-height:150px;object-fit:cover}
   .card.selected{outline:2px solid var(--accent2);outline-offset:1px}
-  .card-check{position:absolute;top:10px;inset-inline-start:10px;z-index:3;width:19px;height:19px;
+  /* In normal flow by default — an overlay checkbox floating on top of a card
+     reliably ends up over someone's text sooner or later, since card content
+     height varies. The one deliberate exception is .seq-check, which floats over
+     a sequence's cover image where the only competing content is a title anchored
+     to the bottom via a shade gradient, never near the top-corner checkbox. */
+  .card-check{width:17px;height:17px;flex:none;cursor:pointer;accent-color:var(--accent2)}
+  .seq-check{position:absolute;top:10px;inset-inline-start:10px;z-index:3;width:19px;height:19px;
     cursor:pointer;accent-color:var(--accent2)}
   .selbar{position:sticky;top:64px;z-index:40;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
     background:var(--panel2);border:1px solid var(--accent2);border-radius:12px;padding:9px 14px;margin-bottom:16px}
@@ -185,7 +191,7 @@
   .beat-img{display:block;max-width:180px;max-height:110px;border-radius:8px;margin:6px 0}
   .cap-preview{display:inline-flex;align-items:center;gap:6px}
   .cap-preview img{height:44px;border-radius:6px;display:block}
-  .card-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .card-top{display:flex;align-items:center;gap:8px}
   .kind{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;padding:2px 8px;border-radius:6px}
   .kind-spark{background:var(--k-spark-bg);color:var(--k-spark-ink)}
   .kind-dialogue{background:var(--k-dialogue-bg);color:var(--k-dialogue-ink)}
@@ -672,7 +678,8 @@ const I18N={he:{
  "Send {n} sequences to Trash?": "להעביר {n} רצפים לפח?",
  "Send {n} tags to Trash?": "להעביר {n} תגיות לפח?",
  "Kept for 30 days, then removed for good.": "נשמר 30 יום, ואז מוסר לצמיתות.",
- "Trash is empty.": "הפח ריק."
+ "Trash is empty.": "הפח ריק.",
+ "Back to Ideas": "חזרה לרעיונות"
 }};
 /* ---- interface language ---------------------------------------------------
    Note *content* always decides its own direction via dir="auto" (so an English
@@ -862,9 +869,11 @@ function noteCard(n){
   const seqs=seqsOf(n.id), nLinks=linksOf(n.id).length, st=noteStatus(n);
   const sel=(state.selectedIds||[]).includes(n.id);
   return `<div class="card st-${st} ${sel?'selected':''}" onclick="openNote('${n.id}')">
-    <input type="checkbox" class="card-check" ${sel?'checked':''} onclick="event.stopPropagation();toggleSelect('${n.id}')" title="${t('Select')}">
     ${n.image?`<img class="card-img" src="${n.image}" alt="" loading="lazy">`:''}
-    <div class="card-top"><span class="kind kind-${n.kind}">${t(n.kind)}</span><span class="st-chip">${stLabel(st)}</span></div>
+    <div class="card-top">
+      <input type="checkbox" class="card-check" ${sel?'checked':''} onclick="event.stopPropagation();toggleSelect('${n.id}')" title="${t('Select')}">
+      <span class="kind kind-${n.kind}">${t(n.kind)}</span><span class="st-chip" style="margin-inline-start:auto">${stLabel(st)}</span>
+    </div>
     <div class="card-text ${n.kind==='dialogue'?'dlg':''}" dir="auto">${esc(n.text)}</div>
     <div class="card-meta">
       ${n.world?`<span class="world-pill" dir="auto">${esc(n.world)}</span>`:''}
@@ -909,6 +918,7 @@ function selectionBar(ids,mode){
       <button class="btn" onclick="bulkSetWorld()">🌍 ${t('Set world…')}</button>
       <button class="btn" onclick="bulkAddToSequence()">⛓ ${t('Add to sequence…')}</button>
       <button class="btn" onclick="bulkMarkSorted()">✓ ${t('Mark sorted')}</button>
+      <button class="btn" onclick="bulkMarkInbox()">↩ ${t('Back to Ideas')}</button>
       <button class="btn danger" onclick="bulkDelete()">🗑 ${t('Move to Trash')}</button>`,
     sequences:`<button class="btn danger" onclick="bulkDeleteSequences()">🗑 ${t('Move to Trash')}</button>`,
     tags:`<button class="btn" onclick="bulkSetTagType('character')">${t('Mark as character')}</button>
@@ -961,6 +971,11 @@ function bulkSetWorld(){
 function bulkMarkSorted(){
   const ns=selectedNotes().filter(n=>n.status==='inbox'); if(!ns.length){ toast(t('Saved')); return; }
   ns.forEach(n=>{ n.status='sorted'; n.updatedAt=Date.now(); });
+  render(); toast(t('Saved'));
+}
+function bulkMarkInbox(){
+  const ns=selectedNotes().filter(n=>n.status!=='inbox'); if(!ns.length){ toast(t('Saved')); return; }
+  ns.forEach(n=>{ n.status='inbox'; n.updatedAt=Date.now(); });
   render(); toast(t('Saved'));
 }
 function bulkDeleteSequences(){
@@ -1071,7 +1086,7 @@ function viewTrash(){
     ${selectionBar(ids,'trash')}
     ${items.length?`<div class="tag-tree">${items.map(x=>`
       <div class="tag-row" style="cursor:default">
-        <input type="checkbox" class="card-check" style="position:static" ${state.selectedIds.includes(x.id)?'checked':''} onclick="toggleSelect('${x.id}')" title="${t('Select')}">
+        <input type="checkbox" class="card-check" ${state.selectedIds.includes(x.id)?'checked':''} onclick="toggleSelect('${x.id}')" title="${t('Select')}">
         <span class="kind kind-${x.kind==='note'?(x.data.kind||'spark'):'ref'}">${t(TRASH_KIND_LABEL[x.kind])}</span>
         <span class="tag-name" dir="auto" style="font-family:inherit;font-size:14px;font-weight:400;flex:1">${trashPreview(x)}</span>
         <span class="tag-stats">${fmtDate(x.deletedAt)}</span>
@@ -1127,7 +1142,7 @@ function viewSeqList(){
     ${selectionBar(ids,'sequences')}
     <div class="seq-grid">${state.sequences.map(s=>`
       <div class="seq-card ${state.selectedIds.includes(s.id)?'selected':''}" onclick="openSeq('${s.id}')">
-        <input type="checkbox" class="card-check" ${state.selectedIds.includes(s.id)?'checked':''} onclick="event.stopPropagation();toggleSelect('${s.id}')" title="${t('Select')}">
+        <input type="checkbox" class="seq-check" ${state.selectedIds.includes(s.id)?'checked':''} onclick="event.stopPropagation();toggleSelect('${s.id}')" title="${t('Select')}">
         <div class="seq-cover" ${seqBg(s)?`style="background-image:url('${esc(seqBg(s))}')"`:''}>
           <div class="seq-cover-shade"><div class="seq-title" dir="auto">${esc(s.title)||t('Untitled')}</div></div>
         </div>
@@ -1270,7 +1285,7 @@ function tagRow(tag,depth,seen){
   const has=r&&(r.description||r.image||(r.refs&&r.refs.length));
   const arg=JSON.stringify(tag).replace(/"/g,'&quot;');
   return `<div class="tag-row" style="margin-inline-start:${depth*22}px" onclick="openTagStay(${arg})">
-      <input type="checkbox" class="card-check" style="position:static" ${state.selectedIds.includes(tag)?'checked':''} onclick="event.stopPropagation();toggleSelect(${arg})" title="${t('Select')}">
+      <input type="checkbox" class="card-check" ${state.selectedIds.includes(tag)?'checked':''} onclick="event.stopPropagation();toggleSelect(${arg})" title="${t('Select')}">
       <span class="tag-dot" style="${isCharacter(tag)?'background:var(--accent2)':''}"></span>
       <span class="tag-name" dir="auto">${r&&r.starred?'★ ':''}${esc(r&&r.title?r.title:tag)}</span>
       <span class="tag-hash" dir="auto">#${esc(tag)}</span>
@@ -1283,7 +1298,7 @@ function tagRowFlat(tag){
   const r=tagRec(tag), c=tagCount(tag), char=isCharacter(tag);
   const arg=JSON.stringify(tag).replace(/"/g,'&quot;');
   return `<div class="tag-row" onclick="openTagStay(${arg})">
-      <input type="checkbox" class="card-check" style="position:static" ${state.selectedIds.includes(tag)?'checked':''} onclick="event.stopPropagation();toggleSelect(${arg})" title="${t('Select')}">
+      <input type="checkbox" class="card-check" ${state.selectedIds.includes(tag)?'checked':''} onclick="event.stopPropagation();toggleSelect(${arg})" title="${t('Select')}">
       <span class="tag-dot" style="${char?'background:var(--accent2)':''}"></span>
       <span class="tag-name" dir="auto">${r&&r.starred?'★ ':''}${esc(r&&r.title?r.title:tag)}</span>
       <span class="tag-hash" dir="auto">#${esc(tag)}</span>
