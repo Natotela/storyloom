@@ -31,6 +31,14 @@ shared vault the first time that browser opens the app with the server running.
 
 **Export weekly** anyway — the JSON download is the canon and imports cleanly anywhere.
 
+## Build tag
+
+A small `vNN · date` label sits next to the logo (hover it for a note about what it is
+for). It is bumped by hand right before each commit, so after you deploy and hard-refresh,
+seeing the number change is proof you are looking at the new version and not a cached
+copy. Also logged to the console on load. To bump it: edit `const BUILD` near the top of
+the `<script>` in index.html.
+
 ## Theme
 
 The ◐/☀/☾ button cycles auto (follows Windows) → light → dark. Per browser.

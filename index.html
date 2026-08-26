@@ -80,6 +80,8 @@
 
   header{display:flex;align-items:center;gap:18px;padding:14px 22px;border-bottom:1px solid var(--line);background:var(--bg2);position:sticky;top:0;z-index:50}
   .logo{font-family:var(--font-display);font-size:22px;font-weight:700;letter-spacing:.5px;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent;white-space:nowrap}
+  .build-tag{font-family:var(--font-ui);font-size:10.5px;font-weight:500;letter-spacing:0;
+    -webkit-text-fill-color:var(--ink-faint);background:none;-webkit-background-clip:initial;background-clip:initial;color:var(--ink-faint);vertical-align:middle}
   nav{display:flex;gap:4px;flex:1}
   nav button{padding:8px 14px;border-radius:9px;color:var(--ink-dim);font-weight:500;font-size:14px}
   nav button:hover{background:var(--panel)}
@@ -271,7 +273,7 @@
 </head>
 <body>
 <header>
-  <div class="logo">✦ Storyloom</div>
+  <div class="logo">✦ Storyloom <span id="buildTag" class="build-tag"></span></div>
   <nav id="nav"></nav>
   <div class="hdr-actions">
     <span id="storeBadge" style="align-self:center;font-size:11.5px;color:var(--ink-faint);white-space:nowrap"></span>
@@ -291,6 +293,11 @@
 
 <script>
 'use strict';
+// Bumped by hand right before each commit — the one honest way to tell, after a
+// deploy and a hard refresh, that the page you're looking at is actually the new
+// one and not a cached copy. Shown in the header and logged on load.
+const BUILD='v14 · 2026-08-26';
+console.log('Storyloom build:', BUILD);
 /* ============ store ============ */
 const KEY='storyloom.v1';
 let freshVault=false;
@@ -1934,6 +1941,8 @@ function cycleTheme(){
 
 function clearFilters(){ state.filters={q:'',world:'',kind:'',tag:''}; render(); }
 
+document.getElementById('buildTag').textContent=BUILD;
+document.getElementById('buildTag').title='Build shown here — after a deploy, a hard refresh should change this.';
 render();
 applyTheme();
 applyLang();
