@@ -92,6 +92,21 @@ share storage on modern iOS, so doing it once per device is enough.
   a red badge — you'll get a warning if you try.
 - **Your view isn't shared**: open tab, filters, and theme stay per-device on purpose.
 
+## If a deploy does not appear
+
+Check **https://github.com/Natotela/storyloom/actions** — the "pages build and deployment"
+run for your commit should be green.
+
+- **Run failed with every job still `queued` and nothing executed** — that is GitHub
+  failing to assign a runner, not a problem with the code. Click **Re-run all jobs** on
+  that run; it normally succeeds on the retry.
+- **Run is green but the page looks old** — the CDN caches for up to 10 minutes. Hard
+  refresh (`Ctrl+F5`); the build tag by the logo is the reliable check.
+
+The repo contains an empty `.nojekyll` file so Pages skips Jekyll and just copies the
+files as-is. Do not delete it: it makes the build faster and removes a whole class of
+build failures that Jekyll can cause on a plain static site.
+
 ## Updating the app
 
 From the `storyloom` folder:
