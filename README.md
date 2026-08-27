@@ -158,14 +158,24 @@ and theme, the choice is per device and lives in its own localStorage key — it
 written into the vault, so the two of you can be signed in as different people on the same
 shared vault at the same time.
 
-What *does* travel is the stamp: anything created while a name is selected records that
-name as its `author` — notes captured in Ideas, notes written straight onto a tag page,
-markdown imports, new sequences, and new tag pages. Notes show it as a small pill next to
-their date. Nothing created before this existed has an author, and those simply show no
-pill rather than being guessed at.
+What *does* travel is the marking. Each person has a fixed symbol — **◆ IC** (ember) and
+**▲ LIK** (violet) — and it appears on whatever they last touched:
 
-Switching names never rewrites history: the author is set once at creation and editing a
-note later does not change it.
+- **Every change is marked, not just creation.** Editing, retagging, moving to a sequence,
+  changing status, restoring from Trash — any mutation stamps `editedBy` with whoever is
+  currently selected. This applies to records that already existed, so you can always see
+  who was last in a thing.
+- **Creation is remembered separately.** `author` is set once and never rewritten, so
+  opening a note shows the full story: *created by ◆ IC · last edited by ▲ LIK*.
+- **The marks appear on every pane** — note cards, sequence cards, and tag rows — beside
+  the date or count.
+- Records that predate this feature carry no marking and show none, rather than being
+  attributed to whoever happens to be selected now.
+
+This is enforced structurally rather than by remembering to add it: all 34 mutation points
+in the app were converted to route through a single `stamp()` helper that sets the editor
+and the timestamp together, so a future code path cannot update something without also
+recording who did it.
 
 ## Interface language (English / עברית)
 

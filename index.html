@@ -304,7 +304,7 @@
 // Bumped by hand right before each commit — the one honest way to tell, after a
 // deploy and a hard refresh, that the page you're looking at is actually the new
 // one and not a cached copy. Shown in the header and logged on load.
-const BUILD='v17 · 2026-08-26';
+const BUILD='v18 · 2026-08-26';
 console.log('Storyloom build:', BUILD);
 /* ============ store ============ */
 const KEY='storyloom.v1';
@@ -324,6 +324,10 @@ function blank(){ return {notes:[],sequences:[],links:[],tags:[],trash:[],delete
 // device still has the item and the merge hands it straight back. tomb() records when
 // something died; the merge then drops it everywhere.
 function tomb(id){ if(!state.deleted) state.deleted={}; state.deleted[id]=Date.now(); }
+// Every mutation in the app goes through here rather than setting updatedAt
+// directly, so "who touched this last" can never drift out of sync with "when
+// was this last touched" — including edits to records that already existed.
+function stamp(o){ if(o){ o.editedBy=currentUser(); o.updatedAt=Date.now(); } return o; }
 // Move a live object to Trash: keep its full data so it can be restored, and still
 // tomb() it so it disappears everywhere else and cannot be resurrected by a stale sync.
 function trashIt(kind,obj){
@@ -335,7 +339,7 @@ function restoreFromTrash(trashId){
   const i=(state.trash||[]).findIndex(x=>x.id===trashId);
   if(i<0) return;
   const entry=state.trash[i];
-  const obj=entry.data; obj.updatedAt=Date.now();  // fresh edit beats the old tombstone on sync
+  const obj=entry.data; stamp(obj);  // fresh edit beats the old tombstone on sync
   if(entry.kind==='note') state.notes.unshift(obj);
   else if(entry.kind==='sequence') state.sequences.unshift(obj);
   else if(entry.kind==='tag') state.tags.unshift(obj);
@@ -683,7 +687,10 @@ const I18N={he:{
  "Trash is empty.": "הפח ריק.",
  "Back to Ideas": "חזרה לרעיונות",
  "Working as {name} — new notes are stamped with this. Click to switch.": "עובדים בתור {name} — הערות חדשות יסומנו בשם הזה. לחצו כדי להחליף.",
- "Now working as {name}": "עובדים כעת בתור {name}"
+ "Now working as {name}": "עובדים כעת בתור {name}",
+ "Last touched by {name}": "נגע לאחרונה: {name}",
+ "created by": "נוצר על ידי",
+ "last edited by": "נערך לאחרונה על ידי"
 }};
 /* ---- interface language ---------------------------------------------------
    Note *content* always decides its own direction via dir="auto" (so an English
@@ -721,7 +728,21 @@ function toggleLang(){
    author stamped onto anything created while a name is selected. */
 const USERKEY='storyloom.user';
 const USERS=['IC','LIK'];
+// A fixed mark and colour per person, so who-touched-this reads at a glance
+// without having to actually read the name.
+const USER_STYLE={IC:{mark:'◆',color:'var(--accent)'},LIK:{mark:'▲',color:'var(--accent2)'}};
 function currentUser(){ const u=localStorage.getItem(USERKEY); return USERS.includes(u)?u:USERS[0]; }
+function userMark(name){ return (USER_STYLE[name]||{}).mark||'•'; }
+function userColor(name){ return (USER_STYLE[name]||{}).color||'var(--ink-faint)'; }
+// Records made before authorship existed have neither field and show no mark
+// rather than being attributed to whoever happens to be selected now.
+function lastEditor(o){ return (o&&(o.editedBy||o.author))||''; }
+function editorPill(o,extraStyle){
+  const who=lastEditor(o);
+  if(!who) return '';
+  const c=userColor(who);
+  return `<span class="author-pill" style="color:${c};border-color:${c};${extraStyle||''}" title="${t('Last touched by {name}').replace('{name}',esc(who))}">${userMark(who)} ${esc(who)}</span>`;
+}
 function applyUser(){
   const b=document.getElementById('userBtn');
   if(!b) return;
@@ -906,7 +927,7 @@ function noteCard(n){
       ${(n.tags||[]).map(x=>{const r=tagRec(x); const arg=JSON.stringify(x).replace(/"/g,'&quot;'); return `<span class="tag" dir="auto" onclick="event.stopPropagation();goToTag(${arg})">${r&&r.starred?'★ ':''}${esc(x)}</span>`;}).join('')}
       ${seqs.length?`<span class="in-seq">⛓ ${seqs.length} seq</span>`:''}
       ${nLinks?`<span class="in-seq">↔ ${nLinks}</span>`:''}
-      <span style="margin-inline-start:auto;font-size:11.5px;color:var(--ink-faint)">${n.author?`<span class="author-pill">${esc(n.author)}</span> `:''}${fmtDate(n.createdAt)}</span>
+      <span style="margin-inline-start:auto;font-size:11.5px;color:var(--ink-faint);display:inline-flex;align-items:center;gap:5px">${editorPill(n)}${fmtDate(n.createdAt)}</span>
     </div></div>`;
 }
 
@@ -974,7 +995,7 @@ function bulkDelete(){
   const ids=new Set(ns.map(n=>n.id));
   ns.forEach(n=>trashIt('note',n));
   state.notes=state.notes.filter(n=>!ids.has(n.id));
-  state.sequences.forEach(s=>{ const b0=s.beats.length; s.beats=s.beats.filter(b=>!ids.has(b.noteId)); if(s.beats.length!==b0) s.updatedAt=Date.now(); });
+  state.sequences.forEach(s=>{ const b0=s.beats.length; s.beats=s.beats.filter(b=>!ids.has(b.noteId)); if(s.beats.length!==b0) stamp(s); });
   state.links=state.links.filter(l=>!ids.has(l.from)&&!ids.has(l.to));
   state.selectedIds=[];
   render(); toast(t('Moved to Trash 🗑'));
@@ -984,24 +1005,24 @@ function bulkAddTag(){
   const v=prompt(t('tag name…'));
   if(!v||!v.trim()) return;
   const add=parseTags(v);
-  ns.forEach(n=>{ n.tags=parseTags([...(n.tags||[]),...add].join(', ')); n.updatedAt=Date.now(); });
+  ns.forEach(n=>{ n.tags=parseTags([...(n.tags||[]),...add].join(', ')); stamp(n); });
   render(); toast(t('Saved'));
 }
 function bulkSetWorld(){
   const ns=selectedNotes(); if(!ns.length) return;
   const v=prompt(t('world / project'));
   if(v===null) return;
-  ns.forEach(n=>{ n.world=v.trim(); n.updatedAt=Date.now(); });
+  ns.forEach(n=>{ n.world=v.trim(); stamp(n); });
   render(); toast(t('Saved'));
 }
 function bulkMarkSorted(){
   const ns=selectedNotes().filter(n=>n.status==='inbox'); if(!ns.length){ toast(t('Saved')); return; }
-  ns.forEach(n=>{ n.status='sorted'; n.updatedAt=Date.now(); });
+  ns.forEach(n=>{ n.status='sorted'; stamp(n); });
   render(); toast(t('Saved'));
 }
 function bulkMarkInbox(){
   const ns=selectedNotes().filter(n=>n.status!=='inbox'); if(!ns.length){ toast(t('Saved')); return; }
-  ns.forEach(n=>{ n.status='inbox'; n.updatedAt=Date.now(); });
+  ns.forEach(n=>{ n.status='inbox'; stamp(n); });
   render(); toast(t('Saved'));
 }
 function bulkDeleteSequences(){
@@ -1019,7 +1040,7 @@ function bulkDeleteTags(){
   names.forEach(name=>{
     const r=tagRec(name); if(!r) return; // never visited — nothing to trash
     const orphan=norm(r.tag);
-    (state.tags||[]).forEach(x=>{ if(norm(x.parent)===orphan){ x.parent=r.parent||''; x.updatedAt=Date.now(); } });
+    (state.tags||[]).forEach(x=>{ if(norm(x.parent)===orphan){ x.parent=r.parent||''; stamp(x); } });
     trashIt('tag',r);
   });
   const ids=new Set((state.tags||[]).filter(r=>names.includes(r.tag)).map(r=>r.id));
@@ -1029,7 +1050,7 @@ function bulkDeleteTags(){
 }
 function bulkSetTagType(type){
   const names=selectedTagNames(); if(!names.length) return;
-  names.forEach(name=>{ const r=ensureTagRec(name); r.type=type; r.updatedAt=Date.now(); });
+  names.forEach(name=>{ const r=ensureTagRec(name); r.type=type; stamp(r); });
   state.selectedIds=[];
   render(); toast(t('Saved'));
 }
@@ -1060,9 +1081,9 @@ function bulkTagsToSequenceConfirm(seqId){
   ns.forEach(n=>{
     if(used.has(n.id)) return;
     s.beats.push({noteId:n.id,time:''}); used.add(n.id);
-    if(n.status==='inbox'){ n.status='sorted'; n.updatedAt=Date.now(); }
+    if(n.status==='inbox'){ n.status='sorted'; stamp(n); }
   });
-  s.updatedAt=Date.now();
+  stamp(s);
   state.selectedIds=[];
   closeModal(); render(); toast(t('Beat added — now give it a moment in time'));
 }
@@ -1089,9 +1110,9 @@ function bulkAddToSequenceConfirm(seqId){
   ns.forEach(n=>{
     if(used.has(n.id)) return;
     s.beats.push({noteId:n.id,time:''}); used.add(n.id); added++;
-    if(n.status==='inbox'){ n.status='sorted'; n.updatedAt=Date.now(); }
+    if(n.status==='inbox'){ n.status='sorted'; stamp(n); }
   });
-  s.updatedAt=Date.now();
+  stamp(s);
   state.selectedIds=[];
   closeModal(); render(); toast(t('Beat added — now give it a moment in time'));
 }
@@ -1123,7 +1144,7 @@ function viewTrash(){
 }
 function bulkRestore(){
   const items=(state.trash||[]).filter(x=>state.selectedIds.includes(x.id));
-  items.forEach(x=>{ const obj=x.data; obj.updatedAt=Date.now();
+  items.forEach(x=>{ const obj=x.data; stamp(obj);
     if(x.kind==='note') state.notes.unshift(obj);
     else if(x.kind==='sequence') state.sequences.unshift(obj);
     else if(x.kind==='tag') state.tags.unshift(obj);
@@ -1172,7 +1193,7 @@ function viewSeqList(){
         <div class="seq-cover" ${seqBg(s)?`style="background-image:url('${esc(seqBg(s))}')"`:''}>
           <div class="seq-cover-shade"><div class="seq-title" dir="auto">${esc(s.title)||t('Untitled')}</div></div>
         </div>
-        <div class="seq-body"><span>${esc(s.description||'')}</span><span style="white-space:nowrap">${s.beats.length} ${t('beats')}</span></div>
+        <div class="seq-body"><span>${esc(s.description||'')}</span><span style="white-space:nowrap;display:inline-flex;align-items:center;gap:6px">${editorPill(s)}${s.beats.length} ${t('beats')}</span></div>
       </div>`).join('')}</div>
     ${state.sequences.length?'':`<div class="empty"><b>${t('No sequences yet.')}</b><br>${t('A sequence knits notes into an ordered thread — a scene, an act, a chapter.')}</div>`}`;
 }
@@ -1229,17 +1250,17 @@ function beatRow(s,b,i){
       <button onclick="rmBeat('${s.id}',${i})" title="${t('remove from sequence')}">✕</button>
     </div></div>`;
 }
-function updSeq(id,k,v){ const s=seqById(id); if(s){ s[k]=v.trim(); s.updatedAt=Date.now(); render(); } }
+function updSeq(id,k,v){ const s=seqById(id); if(s){ s[k]=v.trim(); stamp(s); render(); } }
 function seqImage(id,input){
   const f=input.files[0]; input.value='';
   if(!f) return;
-  shrinkImage(f).then(d=>{ const s=seqById(id); if(s){ s.image=d; s.updatedAt=Date.now(); render(); toast(t('Sequence image set 🖼')); } })
+  shrinkImage(f).then(d=>{ const s=seqById(id); if(s){ s.image=d; stamp(s); render(); toast(t('Sequence image set 🖼')); } })
     .catch(()=>toast(t('Could not read that image')));
 }
-function removeSeqImage(id){ const s=seqById(id); if(s){ s.image=null; s.updatedAt=Date.now(); render(); } }
-function updBeat(sid,i,v){ const s=seqById(sid); if(s&&s.beats[i]){ s.beats[i].time=v; s.updatedAt=Date.now(); save(); } }
-function moveBeat(sid,i,d){ const s=seqById(sid); const j=i+d; if(!s||j<0||j>=s.beats.length) return; [s.beats[i],s.beats[j]]=[s.beats[j],s.beats[i]]; s.updatedAt=Date.now(); render(); }
-function rmBeat(sid,i){ const s=seqById(sid); if(s){ s.beats.splice(i,1); s.updatedAt=Date.now(); render(); } }
+function removeSeqImage(id){ const s=seqById(id); if(s){ s.image=null; stamp(s); render(); } }
+function updBeat(sid,i,v){ const s=seqById(sid); if(s&&s.beats[i]){ s.beats[i].time=v; stamp(s); save(); } }
+function moveBeat(sid,i,d){ const s=seqById(sid); const j=i+d; if(!s||j<0||j>=s.beats.length) return; [s.beats[i],s.beats[j]]=[s.beats[j],s.beats[i]]; stamp(s); render(); }
+function rmBeat(sid,i){ const s=seqById(sid); if(s){ s.beats.splice(i,1); stamp(s); render(); } }
 function delSeq(id){
   const s=seqById(id); if(!s) return;
   if(!confirm(t('Delete this sequence? (Notes stay in the library.)'))) return;
@@ -1256,7 +1277,7 @@ function bindDrag(){
     el.addEventListener('drop',e=>{
       e.preventDefault(); el.classList.remove('dragover');
       const to=+el.dataset.i, s=seqById(state.openSeq);
-      if(s&&dragIdx!==null&&dragIdx!==to){ const [m]=s.beats.splice(dragIdx,1); s.beats.splice(to,0,m); s.updatedAt=Date.now(); render(); }
+      if(s&&dragIdx!==null&&dragIdx!==to){ const [m]=s.beats.splice(dragIdx,1); s.beats.splice(to,0,m); stamp(s); render(); }
       dragIdx=null;
     });
   });
@@ -1315,7 +1336,7 @@ function tagRow(tag,depth,seen){
       <span class="tag-dot" style="${isCharacter(tag)?'background:var(--accent2)':''}"></span>
       <span class="tag-name" dir="auto">${r&&r.starred?'★ ':''}${esc(r&&r.title?r.title:tag)}</span>
       <span class="tag-hash" dir="auto">#${esc(tag)}</span>
-      <span class="tag-stats">${c} ${c===1?t('note'):t('notes')}${kids.length?` · ${kids.length} ${t('sub-tags')}`:''}${has?' · ✎':''}</span>
+      <span class="tag-stats" style="display:inline-flex;align-items:center;gap:6px">${r?editorPill(r):''}${c} ${c===1?t('note'):t('notes')}${kids.length?` · ${kids.length} ${t('sub-tags')}`:''}${has?' · ✎':''}</span>
     </div>${kids.map(x=>tagRow(x,depth+1,seen)).join('')}`;
 }
 // a flat row for the General Tags index — no nesting, just the fact that this tag
@@ -1328,7 +1349,7 @@ function tagRowFlat(tag){
       <span class="tag-dot" style="${char?'background:var(--accent2)':''}"></span>
       <span class="tag-name" dir="auto">${r&&r.starred?'★ ':''}${esc(r&&r.title?r.title:tag)}</span>
       <span class="tag-hash" dir="auto">#${esc(tag)}</span>
-      <span class="tag-stats">${char?t('character'):t('general')} · ${c} ${c===1?t('note'):t('notes')}</span>
+      <span class="tag-stats" style="display:inline-flex;align-items:center;gap:6px">${r?editorPill(r):''}${char?t('character'):t('general')} · ${c} ${c===1?t('note'):t('notes')}</span>
     </div>`;
 }
 // returnView says which tab you land back on ('tags' or 'gtags') — the new tag
@@ -1447,7 +1468,7 @@ function viewTagDetail(){
       <span class="lbl">⛓ ${t('sequence')}</span>
       <span class="txt" dir="auto" onclick="openSeq('${q.id}')">${esc(q.title||t('Untitled'))}</span></div>`).join('')}</div>`:''}`;
 }
-function updTag(id,k,v){ const r=tagRecById(id); if(r){ r[k]=v.trim(); r.updatedAt=Date.now(); render(); } }
+function updTag(id,k,v){ const r=tagRecById(id); if(r){ r[k]=v.trim(); stamp(r); render(); } }
 // most notes on a tag page share a world, so offer it rather than making them retype it
 function commonWorld(notes){
   const c={}; notes.forEach(n=>{ if(n.world) c[n.world]=(c[n.world]||0)+1; });
@@ -1467,31 +1488,31 @@ function captureIntoTag(id){
 }
 function setTagParent(id,v){
   const r=tagRecById(id); if(!r) return;
-  r.parent=v?canonTag(v):''; r.updatedAt=Date.now();
+  r.parent=v?canonTag(v):''; stamp(r);
   if(r.parent) ensureTagRec(r.parent);   // the parent needs a record so the tree can find it
   render();
 }
-function toggleTagStar(id){ const r=tagRecById(id); if(r){ r.starred=!r.starred; r.updatedAt=Date.now(); render(); } }
+function toggleTagStar(id){ const r=tagRecById(id); if(r){ r.starred=!r.starred; stamp(r); render(); } }
 function tagImage(id,input){
   const f=input.files[0]; input.value=''; if(!f) return;
-  shrinkImage(f).then(d=>{ const r=tagRecById(id); if(r){ r.image=d; r.updatedAt=Date.now(); render(); toast(t('Image set 🖼')); } })
+  shrinkImage(f).then(d=>{ const r=tagRecById(id); if(r){ r.image=d; stamp(r); render(); toast(t('Image set 🖼')); } })
     .catch(()=>toast(t('Could not read that image')));
 }
-function removeTagImage(id){ const r=tagRecById(id); if(r){ r.image=null; r.updatedAt=Date.now(); render(); } }
+function removeTagImage(id){ const r=tagRecById(id); if(r){ r.image=null; stamp(r); render(); } }
 function addTagRef(id){
   const r=tagRecById(id); if(!r) return;
   const url=document.getElementById('wrUrl').value.trim();
   if(!url){ toast(t('Paste a URL first')); return; }
   r.refs=r.refs||[];
   r.refs.push({label:document.getElementById('wrLabel').value.trim(),url});
-  r.updatedAt=Date.now(); render(); toast(t('Link pinned'));
+  stamp(r); render(); toast(t('Link pinned'));
 }
-function rmTagRef(id,i){ const r=tagRecById(id); if(r){ r.refs.splice(i,1); r.updatedAt=Date.now(); render(); } }
+function rmTagRef(id,i){ const r=tagRecById(id); if(r){ r.refs.splice(i,1); stamp(r); render(); } }
 function delTagPage(id){
   const r=tagRecById(id); if(!r) return;
   if(!confirm(t('Delete this tag page?')+'\n\n'+t('The tag itself and every note using it stay — only this page, its text and pinned links go.'))) return;
   const orphan=norm(r.tag);
-  (state.tags||[]).forEach(x=>{ if(norm(x.parent)===orphan){ x.parent=r.parent||''; x.updatedAt=Date.now(); } });
+  (state.tags||[]).forEach(x=>{ if(norm(x.parent)===orphan){ x.parent=r.parent||''; stamp(x); } });
   trashIt('tag',r);
   state.tags=state.tags.filter(x=>x.id!==id); state.openTag=null; render();
 }
@@ -1504,6 +1525,10 @@ function openNote(id){
   div.onclick=e=>{ if(e.target===div) closeModal(); };
   div.innerHTML=`<div class="modal">
     <h3>${t('Edit thread')}</h3>
+    ${(n.author||n.editedBy)?`<div style="font-size:12.5px;color:var(--ink-faint);margin-bottom:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      ${n.author?`${t('created by')} ${editorPill({editedBy:n.author})}`:''}
+      ${(n.editedBy&&n.editedBy!==n.author)?`· ${t('last edited by')} ${editorPill(n)}`:''}
+    </div>`:''}
     ${n.image?`<img src="${n.image}" alt="" style="max-width:100%;max-height:260px;border-radius:10px;margin-bottom:10px;display:block">`:''}
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <button class="btn" onclick="document.getElementById('nImg').click()">🖼 ${n.image?t('Replace image'):t('Attach image')}</button>
@@ -1539,12 +1564,12 @@ function closeModal(){ document.querySelectorAll('.overlay').forEach(o=>o.remove
 function modalImage(id,input){
   const f=input.files[0]; input.value='';
   if(!f) return;
-  shrinkImage(f).then(d=>{ const n=byId(id); if(n){ n.image=d; n.updatedAt=Date.now(); save(); closeModal(); openNote(id); toast(t('Image attached 🖼')); } })
+  shrinkImage(f).then(d=>{ const n=byId(id); if(n){ n.image=d; stamp(n); save(); closeModal(); openNote(id); toast(t('Image attached 🖼')); } })
     .catch(()=>toast(t('Could not read that image')));
 }
 function removeImage(id){
   const n=byId(id); if(!n) return;
-  n.image=null; n.updatedAt=Date.now(); save(); closeModal(); openNote(id);
+  n.image=null; stamp(n); save(); closeModal(); openNote(id);
 }
 function saveNote(id){
   const n=byId(id); if(!n) return;
@@ -1554,7 +1579,7 @@ function saveNote(id){
   n.status=document.getElementById('nStatus').value;
   n.tags=parseTags(document.getElementById('nTags').value);
   n.refs=parseRefs(document.getElementById('nRefs').value);
-  n.updatedAt=Date.now();
+  stamp(n);
   closeModal(); render(); toast(t('Saved'));
 }
 function delNote(id){
@@ -1562,7 +1587,7 @@ function delNote(id){
   if(!confirm(t('Delete this note everywhere (library, sequences, links)?'))) return;
   trashIt('note',n0);
   state.notes=state.notes.filter(n=>n.id!==id);
-  state.sequences.forEach(s=>{ const b0=s.beats.length; s.beats=s.beats.filter(b=>b.noteId!==id); if(s.beats.length!==b0) s.updatedAt=Date.now(); });
+  state.sequences.forEach(s=>{ const b0=s.beats.length; s.beats=s.beats.filter(b=>b.noteId!==id); if(s.beats.length!==b0) stamp(s); });
   state.links=state.links.filter(l=>l.from!==id&&l.to!==id);
   closeModal(); render();
 }
@@ -1600,8 +1625,8 @@ function pickSuggest(seqId,q){
 }
 function addBeat(seqId,noteId){
   const s=seqById(seqId), n=byId(noteId); if(!s||!n) return;
-  s.beats.push({noteId,time:''}); s.updatedAt=Date.now();
-  if(n.status==='inbox'){ n.status='sorted'; n.updatedAt=Date.now(); }
+  s.beats.push({noteId,time:''}); stamp(s);
+  if(n.status==='inbox'){ n.status='sorted'; stamp(n); }
   closeModal(); render(); toast(t('Beat added — now give it a moment in time'));
 }
 
