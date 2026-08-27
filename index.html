@@ -230,6 +230,10 @@
   .cap-notes{width:100%;min-height:46px;resize:vertical;background:var(--bg2);font-size:14px;margin-top:8px;
     border:1px dashed var(--line)}
   .cap-notes:focus{border-style:solid}
+  #bellBtn{position:relative}
+  #bellBtn.has-unread{color:var(--accent)}
+  #bellBtn .count{background:var(--danger);color:#fff;margin-inline-start:4px}
+  .pick-row.notif{display:block;padding:10px 12px}
   .quick-route{border-color:var(--accent2)!important;color:var(--accent2)}
   .quick-route:hover{background:var(--panel2)}
   .comment-act.quick-route{border:none!important}
@@ -317,6 +321,7 @@
   <nav id="nav"></nav>
   <div class="hdr-actions">
     <span id="storeBadge" style="align-self:center;font-size:11.5px;color:var(--ink-faint);white-space:nowrap"></span>
+    <button class="btn ghost" id="bellBtn" onclick="openNotifications()" style="padding:6px 10px;font-size:15px"></button>
     <button class="btn ghost" id="userBtn" onclick="toggleUser()" style="font-weight:600;padding:6px 11px;white-space:nowrap"></button>
     <button class="btn ghost" id="langBtn" onclick="toggleLang()" style="font-weight:600;padding:6px 11px"></button>
     <button class="btn ghost" id="themeBtn" onclick="cycleTheme()" style="font-size:17px;padding:6px 10px"></button>
@@ -337,7 +342,7 @@
 // Bumped by hand right before each commit — the one honest way to tell, after a
 // deploy and a hard refresh, that the page you're looking at is actually the new
 // one and not a cached copy. Shown in the header and logged on load.
-const BUILD='v20 · 2026-08-27';
+const BUILD='v21 · 2026-08-27';
 console.log('Storyloom build:', BUILD);
 /* ============ store ============ */
 const KEY='storyloom.v1';
@@ -352,7 +357,7 @@ function load(){
 }
 // tag pages were called Warps before they gained hierarchy and free text
 function migrate(v){ if(v && v.warps && !v.tags){ v.tags=v.warps; delete v.warps; } return v; }
-function blank(){ return {notes:[],sequences:[],links:[],tags:[],trash:[],deleted:{},view:'inbox',openSeq:null,openTag:null,gtagQuery:'',viewMode:{},selectedIds:[],filters:{q:'',world:'',kind:'',tag:''}}; }
+function blank(){ return {notes:[],sequences:[],links:[],tags:[],trash:[],deleted:{},seen:{},view:'inbox',openSeq:null,openTag:null,gtagQuery:'',viewMode:{},selectedIds:[],filters:{q:'',world:'',kind:'',tag:''}}; }
 // A deletion has to be a fact that travels, not just an absence — otherwise the other
 // device still has the item and the merge hands it straight back. tomb() records when
 // something died; the merge then drops it everywhere.
@@ -490,6 +495,7 @@ function render(){
 // be wasted.
 function renderView(){
   renderNav();
+  renderBell();
   document.getElementById('worldList').innerHTML = worlds().map(w=>`<option value="${esc(w)}">`).join('');
   const m=document.getElementById('main');
   if(state.view==='inbox') m.innerHTML=viewInbox();
@@ -742,7 +748,17 @@ const I18N={he:{
  "Character tags only — the post becomes part of that character.": "תגיות דמויות בלבד — הפוסט הופך לחלק מאותה דמות.",
  "No character tags yet.": "אין עדיין תגיות של דמויות.",
  "Send this whole post to {name}": "שליחת הפוסט כולו אל {name}",
- "Send this comment (with the post title) to {name}": "שליחת התגובה (עם כותרת הפוסט) אל {name}"
+ "Send this comment (with the post title) to {name}": "שליחת התגובה (עם כותרת הפוסט) אל {name}",
+ "New comments": "תגובות חדשות",
+ "{n} new comments for you": "{n} תגובות חדשות עבורכם",
+ "No new comments": "אין תגובות חדשות",
+ "Nothing new.": "אין חדש.",
+ "Comments from the other of you will show up here.": "תגובות מהצד השני יופיעו כאן.",
+ "Mark all read": "סימון הכל כנקרא",
+ "Copy a direct link to this post": "העתקת קישור ישיר לפוסט",
+ "Link copied": "הקישור הועתק",
+ "Copy this link": "העתיקו את הקישור",
+ "That note is no longer here.": "ההערה הזו כבר לא קיימת."
 }};
 /* ---- interface language ---------------------------------------------------
    Note *content* always decides its own direction via dir="auto" (so an English
@@ -1644,6 +1660,7 @@ function delTagPage(id){
 function openNote(id){
   const n=byId(id); if(!n) return;
   closeModal();   // reopening after an in-dialog action must replace, never stack
+  if(markSeen(id)){ save(); renderBell(); }
   const links=linksOf(id);
   const div=document.createElement('div'); div.className='overlay'; div.id='noteModal';
   div.onclick=e=>{ if(e.target===div) closeModal(); };
@@ -1682,6 +1699,7 @@ function openNote(id){
     ${commentsBlock(n)}
     <div class="modal-actions">
       <button class="btn danger" onclick="delNote('${id}')">${t('Delete')}</button>
+      <button class="btn" onclick="copyNoteLink('${id}')" title="${t('Copy a direct link to this post')}">🔗</button>
       <button class="btn quick-route" onclick="quickSendPost('${id}')" title="${t('Send this whole post to {name}').replace('{name}',esc(quickTagName()))}">➦ ${esc(quickTagName())}</button>
       <button class="btn" onclick="sendPostToTag('${id}')" title="${t('Send this whole post to a character tag')}">➦ ${t('Send post to…')}</button>
       <span style="flex:1"></span>
@@ -1715,6 +1733,87 @@ function commentsBlock(n){
       <button class="btn primary" onclick="addComment('${n.id}')">${t('Post comment')}</button>
     </div>
   </div>`;
+}
+/* ---- notifications -------------------------------------------------------
+   There is no server to push anything, so "unread" is derived: a note counts
+   as new for you if it carries a comment written by someone else after the
+   last time you opened it. The read markers live in the vault (per person, per
+   note) rather than in localStorage, so reading on the laptop also clears it
+   on the phone. */
+function seenAt(user,noteId){ return ((state.seen||{})[user]||{})[noteId]||0; }
+function markSeen(noteId){
+  const u=currentUser();
+  if(!state.seen) state.seen={};
+  if(!state.seen[u]) state.seen[u]={};
+  const latest=Math.max(0,...((byId(noteId)||{}).comments||[]).map(c=>c.at||0));
+  if(latest && state.seen[u][noteId]!==latest){ state.seen[u][noteId]=latest; return true; }
+  return false;
+}
+// comments by anyone other than me, newer than my last look at that note
+function unreadCommentsOn(n){
+  const u=currentUser(), since=seenAt(u,n.id);
+  return (n.comments||[]).filter(c=>c.by!==u && (c.at||0)>since);
+}
+function unreadNotes(){
+  return state.notes
+    .map(n=>({n,cs:unreadCommentsOn(n)}))
+    .filter(x=>x.cs.length)
+    .sort((a,b)=>Math.max(...b.cs.map(c=>c.at))-Math.max(...a.cs.map(c=>c.at)));
+}
+function unreadCount(){ return unreadNotes().reduce((a,x)=>a+x.cs.length,0); }
+function renderBell(){
+  const b=document.getElementById('bellBtn'); if(!b) return;
+  const c=unreadCount();
+  b.innerHTML=`🔔${c?`<span class="count">${c}</span>`:''}`;
+  b.title=c?t('{n} new comments for you').replace('{n}',c):t('No new comments');
+  b.classList.toggle('has-unread',!!c);
+}
+function openNotifications(){
+  const items=unreadNotes();
+  const div=document.createElement('div'); div.className='overlay';
+  div.onclick=e=>{ if(e.target===div) closeModal(); };
+  div.innerHTML=`<div class="modal"><h3>🔔 ${t('New comments')}</h3>
+    ${items.length?`<div class="picker">${items.map(({n,cs})=>{
+      const last=cs[cs.length-1];
+      return `<div class="pick-row notif" onclick="openFromNotification('${n.id}')">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+          ${editorPill({editedBy:last.by})}
+          <span style="font-size:11.5px;color:var(--ink-faint)">${fmtDate(last.at)}</span>
+          ${cs.length>1?`<span class="in-seq">💬 ${cs.length}</span>`:''}
+        </div>
+        <div dir="auto" style="font-weight:600;font-size:13.5px">${esc(postTitle(n))||t('Untitled')}</div>
+        <div dir="auto" style="font-size:13px;color:var(--ink-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(last.text)}</div>
+      </div>`;
+    }).join('')}</div>
+    <div class="modal-actions">
+      <button class="btn" onclick="markAllSeen()">${t('Mark all read')}</button>
+      <span style="flex:1"></span>
+      <button class="btn" onclick="closeModal()">${t('Close')}</button>
+    </div>`
+    :`<div class="empty"><b>${t('Nothing new.')}</b><br>${t('Comments from the other of you will show up here.')}</div>
+      <div class="modal-actions"><span style="flex:1"></span><button class="btn" onclick="closeModal()">${t('Close')}</button></div>`}
+  </div>`;
+  document.body.appendChild(div);
+}
+function openFromNotification(id){ closeModal(); openNote(id); }
+function markAllSeen(){
+  unreadNotes().forEach(x=>markSeen(x.n.id));
+  closeModal(); render(); toast(t('Saved'));
+}
+// A shareable link: .../storyloom/#n=<id> opens straight to that post.
+function noteLink(id){ return location.origin+location.pathname+'#n='+id; }
+function copyNoteLink(id){
+  const url=noteLink(id);
+  const done=()=>toast(t('Link copied'));
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done,()=>prompt(t('Copy this link'),url));
+  else prompt(t('Copy this link'),url);
+}
+function openFromHash(){
+  const m=(location.hash||'').match(/^#n=(.+)$/);
+  if(!m) return;
+  const n=byId(decodeURIComponent(m[1]));
+  history.replaceState(null,'',location.pathname);   // don't re-open on every reload
+  if(n) openNote(n.id); else toast(t('That note is no longer here.'));
 }
 function addComment(id){
   const n=byId(id); if(!n) return;
@@ -2044,6 +2143,18 @@ function mergeVaults(local,remote){
   (remote.trash||[]).forEach(x=>trm.set(x.id,x));
   (local.trash||[]).forEach(x=>{ const ex=trm.get(x.id); if(!ex||(x.deletedAt||0)>=(ex.deletedAt||0)) trm.set(x.id,x); });
   out.trash=[...trm.values()];
+  // read markers are per person and must survive a merge from either side —
+  // the later view of a given note wins, so reading on one device does not
+  // resurrect a notification on another
+  out.seen={};
+  [remote.seen||{},local.seen||{}].forEach(src=>{
+    Object.entries(src).forEach(([user,map])=>{
+      out.seen[user]=out.seen[user]||{};
+      Object.entries(map||{}).forEach(([nid,ts])=>{
+        if(!out.seen[user][nid]||ts>out.seen[user][nid]) out.seen[user][nid]=ts;
+      });
+    });
+  });
   return applyTombstones(dedupeByText(out));
 }
 // Anything whose tombstone is newer than its last edit is gone for good — on every
@@ -2235,6 +2346,8 @@ render();
 applyTheme();
 applyLang();
 initStorage();
+window.addEventListener('hashchange',openFromHash);
+setTimeout(openFromHash,300);
 </script>
 </body>
 </html>

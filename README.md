@@ -139,6 +139,15 @@ vault folder). Each file becomes one inbox note titled by its filename. It under
   comment instead creates a *new* note in that character from just that comment, carrying
   the original post's title as context so the fragment still makes sense, credited to
   whoever wrote the comment. Both offer character tags only.
+- **Notifications** — a 🔔 in the header with a count of comments the *other* person has
+  written that you have not seen. Opening it lists each post with something new: who wrote
+  it, when, and a preview; clicking a row jumps straight to that post and clears it. Your
+  own comments never notify you. Because there is no server pushing anything, "unread" is
+  derived from the vault itself — a post is new to you if it carries a comment by someone
+  else written after the last time you opened it. Read markers are stored per person in
+  the vault, so reading on the laptop also clears it on the phone.
+- **Direct links** — 🔗 on an open post copies a URL ending `#n=<id>`. Opening that URL
+  goes straight to the post, so you can paste one to each other outside the app.
 - **Trash** — the 6th tab. Every delete, single or bulk, lands here first: notes,
   sequences, and tag pages alike, each showing what it was and when it was removed.
   Restore puts it back exactly where it lived (and safely overrides a stale tombstone
