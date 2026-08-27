@@ -210,6 +210,36 @@
   .card-text:dir(rtl),.beat-text:dir(rtl){line-height:1.65}
   .card-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--ink-faint);margin-top:auto}
   .tag{font-size:11.5px;color:var(--tag-ink);background:var(--tag-bg);padding:2px 8px;border-radius:12px;cursor:pointer}
+  .vtoggle{display:inline-flex;gap:2px;border:1px solid var(--line);border-radius:9px;padding:2px;margin-inline-start:auto;margin-inline-end:8px}
+  .vtoggle button{padding:3px 9px;border-radius:7px;font-size:14px;color:var(--ink-faint);line-height:1.2}
+  .vtoggle button.on{background:var(--panel2);color:var(--ink)}
+  .vtoggle button:hover{color:var(--ink)}
+  .nlist{display:flex;flex-direction:column;gap:5px}
+  .nrow{display:flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--line);
+    border-inline-start:4px solid var(--st,var(--line));border-radius:9px;padding:8px 12px;cursor:pointer;
+    transition:transform .08s,border-color .15s}
+  .nrow:hover{transform:translateY(-1px);border-color:var(--st,var(--accent))}
+  .nrow.selected{outline:2px solid var(--accent2);outline-offset:1px}
+  .nrow.st-inbox{--st:var(--st-inbox)} .nrow.st-sorted{--st:var(--st-sorted)} .nrow.st-seq{--st:var(--st-seq)}
+  .nrow-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+  .nrow-text.dlg{font-family:var(--font-display);font-style:italic}
+  .nrow-text.dlg:dir(rtl){font-style:normal;font-weight:600}
+  .nrow-thumb{width:34px;height:34px;object-fit:cover;border-radius:6px;flex:none}
+  .nrow-meta{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-faint);white-space:nowrap}
+  @media (max-width:700px){ .nrow .tag{display:none} .nrow-meta{font-size:10.5px} }
+  .cap-notes{width:100%;min-height:46px;resize:vertical;background:var(--bg2);font-size:14px;margin-top:8px;
+    border:1px dashed var(--line)}
+  .cap-notes:focus{border-style:solid}
+  .comments{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+  .comment-list{display:flex;flex-direction:column;gap:8px;margin:8px 0 12px}
+  .comment{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+  .comment-head{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+  .comment-when{font-size:11.5px;color:var(--ink-faint)}
+  .comment-act{padding:1px 7px;font-size:13px;color:var(--ink-faint)}
+  .comment-act:hover{color:var(--ink)}
+  .comment-text{font-size:14px;white-space:pre-wrap}
+  .comment-add{display:flex;gap:8px;align-items:flex-end}
+  .comment-add textarea{flex:1;min-height:44px;resize:vertical;font-size:14px}
   .author-pill{font-size:10.5px;font-weight:600;letter-spacing:.4px;color:var(--accent2);border:1px solid var(--accent2);border-radius:6px;padding:1px 5px;opacity:.85}
   .tag:hover{filter:brightness(1.15)}
   .world-pill{font-size:11.5px;color:var(--world-ink);background:var(--world-bg);padding:2px 8px;border-radius:12px}
@@ -304,7 +334,7 @@
 // Bumped by hand right before each commit — the one honest way to tell, after a
 // deploy and a hard refresh, that the page you're looking at is actually the new
 // one and not a cached copy. Shown in the header and logged on load.
-const BUILD='v18 · 2026-08-26';
+const BUILD='v19 · 2026-08-27';
 console.log('Storyloom build:', BUILD);
 /* ============ store ============ */
 const KEY='storyloom.v1';
@@ -319,7 +349,7 @@ function load(){
 }
 // tag pages were called Warps before they gained hierarchy and free text
 function migrate(v){ if(v && v.warps && !v.tags){ v.tags=v.warps; delete v.warps; } return v; }
-function blank(){ return {notes:[],sequences:[],links:[],tags:[],trash:[],deleted:{},view:'inbox',openSeq:null,openTag:null,gtagQuery:'',selectedIds:[],filters:{q:'',world:'',kind:'',tag:''}}; }
+function blank(){ return {notes:[],sequences:[],links:[],tags:[],trash:[],deleted:{},view:'inbox',openSeq:null,openTag:null,gtagQuery:'',viewMode:{},selectedIds:[],filters:{q:'',world:'',kind:'',tag:''}}; }
 // A deletion has to be a fact that travels, not just an absence — otherwise the other
 // device still has the item and the merge hands it straight back. tomb() records when
 // something died; the merge then drops it everywhere.
@@ -690,7 +720,24 @@ const I18N={he:{
  "Now working as {name}": "עובדים כעת בתור {name}",
  "Last touched by {name}": "נגע לאחרונה: {name}",
  "created by": "נוצר על ידי",
- "last edited by": "נערך לאחרונה על ידי"
+ "last edited by": "נערך לאחרונה על ידי",
+ "Notes — context, a reminder to yourself, why this matters…": "הערות — הקשר, תזכורת לעצמכם, למה זה חשוב…",
+ "Card view": "תצוגת מלבנים",
+ "List view": "תצוגת רשימה",
+ "Send this whole post to a character tag": "שליחת הפוסט כולו לתגית דמות",
+ "Send post to…": "שליחת הפוסט אל…",
+ "comments": "תגובות",
+ "Send this comment (with the post title) to a character tag": "שליחת התגובה (עם כותרת הפוסט) לתגית דמות",
+ "No comments yet.": "אין עדיין תגובות.",
+ "Reply as {name}…": "תגובה בתור {name}…",
+ "Post comment": "פרסום תגובה",
+ "Comment added": "התגובה נוספה",
+ "Already there": "כבר שם",
+ "Sent to {name}": "נשלח אל {name}",
+ "Send comment to…": "שליחת התגובה אל…",
+ "From the post: “{title}”": "מתוך הפוסט: „{title}”",
+ "Character tags only — the post becomes part of that character.": "תגיות דמויות בלבד — הפוסט הופך לחלק מאותה דמות.",
+ "No character tags yet.": "אין עדיין תגיות של דמויות."
 }};
 /* ---- interface language ---------------------------------------------------
    Note *content* always decides its own direction via dir="auto" (so an English
@@ -783,6 +830,7 @@ function openTagStay(tag){ openTagPage(tag, state.view==='gtags'?'gtags':'tags')
 function captureBox(){
   return `<div class="capture">
     <textarea id="capText" dir="auto" placeholder="${t('Drop a spark — a line of dialogue, an image, half an idea…')}"></textarea>
+    <textarea id="capNotes" dir="auto" class="cap-notes" placeholder="${t('Notes — context, a reminder to yourself, why this matters…')}"></textarea>
     <div class="capture-row">
       <select id="capKind">${KINDS.map(k=>`<option value="${k}">${t(k)}</option>`).join('')}</select>
       <input id="capWorld" dir="auto" list="worldList" placeholder="${t('world / project')}">
@@ -825,11 +873,14 @@ function shrinkImage(file){
 }
 function capture(){
   const txt=document.getElementById('capText').value.trim();
-  if(!txt&&!pendingImage){ toast(t('Write something (or attach an image) first ✍️')); return; }
-  state.notes.unshift({id:uid(),text:txt||'(image)',kind:document.getElementById('capKind').value,
+  const nb=document.getElementById('capNotes');
+  const notes=nb?nb.value.trim():'';
+  if(!txt&&!pendingImage&&!notes){ toast(t('Write something (or attach an image) first ✍️')); return; }
+  state.notes.unshift({id:uid(),text:txt||'(image)',notes,kind:document.getElementById('capKind').value,
     world:document.getElementById('capWorld').value.trim(),tags:parseTags(document.getElementById('capTags').value),
-    refs:[],image:pendingImage||null,status:'inbox',author:currentUser(),createdAt:Date.now(),updatedAt:Date.now()});
+    refs:[],image:pendingImage||null,comments:[],status:'inbox',author:currentUser(),editedBy:currentUser(),createdAt:Date.now(),updatedAt:Date.now()});
   pendingImage=null;
+  if(nb) nb.value='';
   render(); toast(t('Spark saved ✦'));
   const el=document.getElementById('capText'); if(el) el.focus();
 }
@@ -926,6 +977,8 @@ function noteCard(n){
       ${n.world?`<span class="world-pill" dir="auto">${esc(n.world)}</span>`:''}
       ${(n.tags||[]).map(x=>{const r=tagRec(x); const arg=JSON.stringify(x).replace(/"/g,'&quot;'); return `<span class="tag" dir="auto" onclick="event.stopPropagation();goToTag(${arg})">${r&&r.starred?'★ ':''}${esc(x)}</span>`;}).join('')}
       ${seqs.length?`<span class="in-seq">⛓ ${seqs.length} seq</span>`:''}
+      ${(n.comments&&n.comments.length)?`<span class="in-seq">💬 ${n.comments.length}</span>`:''}
+      ${n.notes?`<span class="in-seq" title="${esc(n.notes.slice(0,140))}">📝</span>`:''}
       ${nLinks?`<span class="in-seq">↔ ${nLinks}</span>`:''}
       <span style="margin-inline-start:auto;font-size:11.5px;color:var(--ink-faint);display:inline-flex;align-items:center;gap:5px">${editorPill(n)}${fmtDate(n.createdAt)}</span>
     </div></div>`;
@@ -934,6 +987,69 @@ function noteCard(n){
 /* ---- views ---- */
 function filtersActive(){ const f=state.filters; return !!(f.q||f.world||f.kind||f.tag); }
 function filteredEmpty(){ return `<div class="empty"><b>${t('Nothing matches the current filters.')}</b><br><br><button class="btn" onclick="clearFilters()">${t('Clear filters')}</button></div>`; }
+
+/* ---- cards or list, chosen per section ----------------------------------
+   Kept per device and out of the vault (like theme and language): how one of
+   you prefers to look at a section is not a fact about the canon. */
+function viewMode(section,dflt){ return (state.viewMode&&state.viewMode[section])||dflt; }
+function setViewMode(section,mode){
+  if(!state.viewMode) state.viewMode={};
+  state.viewMode[section]=mode; renderView();
+}
+function viewToggle(section,dflt){
+  const m=viewMode(section,dflt);
+  return `<span class="vtoggle">
+    <button class="${m==='grid'?'on':''}" onclick="setViewMode('${section}','grid')" title="${t('Card view')}">▦</button>
+    <button class="${m==='list'?'on':''}" onclick="setViewMode('${section}','list')" title="${t('List view')}">☰</button>
+  </span>`;
+}
+// One compact row per note — same data as a card, scannable when there are many.
+function noteRow(n){
+  const seqs=seqsOf(n.id), st=noteStatus(n), sel=(state.selectedIds||[]).includes(n.id);
+  return `<div class="nrow st-${st} ${sel?'selected':''}" onclick="openNote('${n.id}')">
+    <input type="checkbox" class="card-check" ${sel?'checked':''} onclick="event.stopPropagation();toggleSelect('${n.id}')" title="${t('Select')}">
+    ${n.image?`<img class="nrow-thumb" src="${n.image}" alt="" loading="lazy">`:''}
+    <span class="kind kind-${n.kind}">${t(n.kind)}</span>
+    <span class="nrow-text ${n.kind==='dialogue'?'dlg':''}" dir="auto">${esc(n.text.split('\n')[0])}</span>
+    ${(n.tags||[]).slice(0,3).map(x=>{const arg=JSON.stringify(x).replace(/"/g,'&quot;');return `<span class="tag" dir="auto" onclick="event.stopPropagation();goToTag(${arg})">${esc(x)}</span>`;}).join('')}
+    ${(n.comments&&n.comments.length)?`<span class="in-seq">💬 ${n.comments.length}</span>`:''}
+    ${seqs.length?`<span class="in-seq">⛓ ${seqs.length}</span>`:''}
+    <span class="nrow-meta">${editorPill(n)}${fmtDate(n.createdAt)}</span>
+  </div>`;
+}
+// notes rendered in whichever mode this section is set to
+function noteBlock(list,section,dflt){
+  return viewMode(section,dflt)==='list'
+    ? `<div class="nlist">${list.map(noteRow).join('')}</div>`
+    : `<div class="grid">${list.map(noteCard).join('')}</div>`;
+}
+// a tag rendered as a card, for when a tag section is switched to card view
+function tagCard(tag){
+  const r=tagRec(tag), c=tagCount(tag), kids=childTags(tag), char=isCharacter(tag);
+  const arg=JSON.stringify(tag).replace(/"/g,'&quot;');
+  return `<div class="card ${state.selectedIds.includes(tag)?'selected':''}" style="--st:${char?'var(--accent2)':'var(--accent)'}" onclick="openTagStay(${arg})">
+    ${r&&r.image?`<img class="card-img" src="${r.image}" alt="" loading="lazy">`:''}
+    <div class="card-top">
+      <input type="checkbox" class="card-check" ${state.selectedIds.includes(tag)?'checked':''} onclick="event.stopPropagation();toggleSelect(${arg})" title="${t('Select')}">
+      <span class="kind" style="background:${char?'var(--accent2)':'var(--accent)'};color:var(--chip-on-ink)">${char?t('character'):t('general')}</span>
+      <span class="st-chip" style="margin-inline-start:auto;background:none;color:var(--accent);border:1px solid var(--accent)">#${esc(tag)}</span>
+    </div>
+    <div class="card-text" dir="auto"><b>${r&&r.starred?'★ ':''}${esc(r&&r.title?r.title:tag)}</b>${r&&r.description?`<br>${esc(r.description.slice(0,120))}`:''}</div>
+    <div class="card-meta">
+      <span>${c} ${c===1?t('note'):t('notes')}${kids.length?` · ${kids.length} ${t('sub-tags')}`:''}</span>
+      <span style="margin-inline-start:auto;font-size:11.5px;color:var(--ink-faint);display:inline-flex;align-items:center;gap:5px">${r?editorPill(r):''}</span>
+    </div></div>`;
+}
+// a sequence rendered as a compact row
+function seqRow(s){
+  const sel=state.selectedIds.includes(s.id);
+  return `<div class="nrow ${sel?'selected':''}" style="--st:var(--accent)" onclick="openSeq('${s.id}')">
+    <input type="checkbox" class="card-check" ${sel?'checked':''} onclick="event.stopPropagation();toggleSelect('${s.id}')" title="${t('Select')}">
+    <span class="nrow-text" dir="auto"><b>${esc(s.title)||t('Untitled')}</b>${s.description?` — ${esc(s.description.slice(0,80))}`:''}</span>
+    <span class="in-seq">${s.beats.length} ${t('beats')}</span>
+    <span class="nrow-meta">${editorPill(s)}</span>
+  </div>`;
+}
 
 /* ---- multi-select, Gmail-style: a checkbox per card, a bar of bulk actions
    once anything is checked. Selection is per-device UI state — it is never
@@ -1165,36 +1281,38 @@ function bulkPurge(){
 }
 function viewInbox(){
   const inbox=applyFilters(state.notes.filter(n=>n.status==='inbox'&&!noteIsCharacterScoped(n)));
-  return captureBox()+filterBar()+selectionBar(inbox.map(n=>n.id))+
-    (inbox.length?`<div class="grid">${inbox.map(noteCard).join('')}</div>`
+  return captureBox()+filterBar()+`<div class="section-h" style="margin-bottom:10px"><span style="color:var(--ink-faint);font-size:13px">${inbox.length} ${t('notes')}</span>${viewToggle('inbox','grid')}</div>`+selectionBar(inbox.map(n=>n.id))+
+    (inbox.length?noteBlock(inbox,'inbox','grid')
     :(filtersActive()?filteredEmpty()
     :`<div class="empty"><b>${t('Inbox zero.')}</b><br>${t('Every spark has been sorted. Drop new ones above.')}</div>`));
 }
 function viewLibrary(){
   const pool=state.notes.filter(n=>!noteIsCharacterScoped(n));
   const notes=applyFilters(pool);
-  return `<div class="section-h"><h2>${t('Library — every thread')}</h2><span style="color:var(--ink-faint);font-size:13px">${notes.length} / ${pool.length} ${t('notes')}</span></div>
+  return `<div class="section-h"><h2>${t('Library — every thread')}</h2><span style="color:var(--ink-faint);font-size:13px">${notes.length} / ${pool.length} ${t('notes')}</span>${viewToggle('library','grid')}</div>
     <div class="legend">
       <span class="lg lg-inbox"><span class="ldot"></span>${t('still in inbox')}</span>
       <span class="lg lg-sorted"><span class="ldot"></span>${t('sorted')}</span>
       <span class="lg lg-seq"><span class="ldot"></span>${t('woven into a sequence')}</span>
     </div>`
     +filterBar()+selectionBar(notes.map(n=>n.id))
-    +(notes.length?`<div class="grid">${notes.map(noteCard).join('')}</div>`:filteredEmpty());
+    +(notes.length?noteBlock(notes,'library','grid'):filteredEmpty());
 }
 function seqBg(s){ return s.image || s.bgUrl || ''; }
 function viewSeqList(){
   const ids=state.sequences.map(s=>s.id);
-  return `<div class="section-h"><h2>${t('Sequences — the weaves')}</h2><button class="btn primary" onclick="newSeq()">${t('+ New sequence')}</button></div>
+  return `<div class="section-h"><h2>${t('Sequences — the weaves')}</h2>${viewToggle('sequences','grid')}<button class="btn primary" onclick="newSeq()">${t('+ New sequence')}</button></div>
     ${selectionBar(ids,'sequences')}
-    <div class="seq-grid">${state.sequences.map(s=>`
+    ${viewMode('sequences','grid')==='list'
+      ? `<div class="nlist">${state.sequences.map(seqRow).join('')}</div>`
+      : `<div class="seq-grid">${state.sequences.map(s=>`
       <div class="seq-card ${state.selectedIds.includes(s.id)?'selected':''}" onclick="openSeq('${s.id}')">
         <input type="checkbox" class="seq-check" ${state.selectedIds.includes(s.id)?'checked':''} onclick="event.stopPropagation();toggleSelect('${s.id}')" title="${t('Select')}">
         <div class="seq-cover" ${seqBg(s)?`style="background-image:url('${esc(seqBg(s))}')"`:''}>
           <div class="seq-cover-shade"><div class="seq-title" dir="auto">${esc(s.title)||t('Untitled')}</div></div>
         </div>
         <div class="seq-body"><span>${esc(s.description||'')}</span><span style="white-space:nowrap;display:inline-flex;align-items:center;gap:6px">${editorPill(s)}${s.beats.length} ${t('beats')}</span></div>
-      </div>`).join('')}</div>
+      </div>`).join('')}</div>`}
     ${state.sequences.length?'':`<div class="empty"><b>${t('No sequences yet.')}</b><br>${t('A sequence knits notes into an ordered thread — a scene, an act, a chapter.')}</div>`}`;
 }
 function newSeq(){
@@ -1301,24 +1419,24 @@ function openTag(id,fromView){ state.openTag=id; state.view=fromView||'tags'; re
 function viewCharTagList(){
   const roots=rootTags();
   const pinned=allTagNames().filter(x=>{ const r=tagRec(x); return r&&r.starred; });
-  return `<div class="section-h"><h2>${t('Character Tags')}</h2>
+  return `<div class="section-h"><h2>${t('Character Tags')}</h2>${viewToggle('tags','list')}
       <button class="btn primary" onclick="newTag('tags')">+ ${t('New tag')}</button></div>
     <p style="color:var(--ink-dim);font-size:14px;margin-bottom:18px;max-width:66ch">${t('Every tag has a page of its own — write on it, give it an image, pin links, and nest tags under a parent (sub-characters under a character). Mark a tag as a character on its own page to give it a private space: its notes stop appearing in Ideas, Library, and Sequences.')}</p>
     ${pinned.length?`<div class="legend" style="margin-bottom:16px">${pinned.map(p=>`<span class="lg lg-inbox" style="cursor:pointer" onclick="openTagStay(${JSON.stringify(p).replace(/"/g,'&quot;')})">★ ${esc(p)}</span>`).join('')}</div>`:''}
     ${selectionBar(allTagNames(),'tags')}
-    ${roots.length?`<div class="tag-tree">${roots.map(x=>tagRow(x,0)).join('')}</div>`
+    ${roots.length?(viewMode('tags','list')==='grid'?`<div class="grid">${allTagNames().map(tagCard).join('')}</div>`:`<div class="tag-tree">${roots.map(x=>tagRow(x,0)).join('')}</div>`)
       :`<div class="empty"><b>${t('No tags yet.')}</b><br>${t('Tag a note and it appears here.')}</div>`}`;
 }
 function viewGeneralTagList(){
   const q=norm(state.gtagQuery||'');
   const all=allTagNames();
   const hits=q?all.filter(x=>norm(x).includes(q)):all;
-  return `<div class="section-h"><h2>${t('General Tags')}</h2>
+  return `<div class="section-h"><h2>${t('General Tags')}</h2>${viewToggle('gtags','list')}
       <button class="btn primary" onclick="newTag('gtags')">+ ${t('New tag')}</button></div>
     <p style="color:var(--ink-dim);font-size:14px;margin-bottom:14px;max-width:66ch">${t('Every tag in the vault, for fast lookup by name.')}</p>
     <input type="search" dir="auto" placeholder="${t('Search tags…')}" value="${esc(state.gtagQuery||'')}" oninput="setGtagQuery(this.value)" style="width:100%;margin-bottom:16px">
     ${selectionBar(hits,'tags')}
-    ${hits.length?`<div class="tag-tree">${hits.map(x=>tagRowFlat(x)).join('')}</div>`
+    ${hits.length?(viewMode('gtags','list')==='grid'?`<div class="grid">${hits.map(tagCard).join('')}</div>`:`<div class="tag-tree">${hits.map(x=>tagRowFlat(x)).join('')}</div>`)
       :(q?`<div class="empty">${t('Nothing matches the current filters.')}</div>`
          :`<div class="empty"><b>${t('No tags yet.')}</b><br>${t('Tag a note and it appears here.')}</div>`)}`;
 }
@@ -1451,12 +1569,12 @@ function viewTagDetail(){
     <div class="hint">${t('It is tagged')} <b>#${esc(r.tag)}</b> ${t('automatically and appears below.')}</div>
   </div>
   ${selectionBar(own.concat(inherited).map(n=>n.id))}
-  ${own.length?`<div class="grid">${own.map(noteCard).join('')}</div>`
+  ${own.length?noteBlock(own,'tagnotes','grid')
     :`<div class="empty">${t('No notes carry this tag yet.')} ${t('Tag a note')} <b>${esc(r.tag)}</b> ${t('and it appears here automatically.')}</div>`}
 
   ${inherited.length?`<div class="section-h" style="margin-top:34px"><h2>${t('From sub-tags')}</h2>
     <span style="color:var(--ink-faint);font-size:13px">${inherited.length} ${t('notes')}</span></div>
-    <div class="grid">${inherited.map(noteCard).join('')}</div>`:''}
+    ${noteBlock(inherited,'tagnotes','grid')}`:''}
 
   ${noteRefs.length?`<div class="section-h" style="margin-top:34px"><h2>${t('References on those threads')}</h2></div>
     <div class="links-list">${noteRefs.map(x=>`<div class="link-row">
@@ -1536,6 +1654,9 @@ function openNote(id){
       <input type="file" id="nImg" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="modalImage('${n.id}',this)">
     </div>
     <textarea id="nText" dir="auto">${esc(n.text)}</textarea>
+    <div style="height:8px"></div>
+    <span class="flabel">${t('notes')}</span>
+    <textarea id="nNotes" dir="auto" class="cap-notes" placeholder="${t('Notes — context, a reminder to yourself, why this matters…')}">${esc(n.notes||'')}</textarea>
     <div style="height:10px"></div>
     <div class="frow">
       <div><span class="flabel">${t('kind')}</span><select id="nKind">${KINDS.map(k=>`<option value="${k}" ${n.kind===k?'selected':''}>${t(k)}</option>`).join('')}</select></div>
@@ -1552,14 +1673,90 @@ function openNote(id){
       }).join('')||`<span style="font-size:13px;color:var(--ink-faint)">${t('none yet')}</span>`}</div>
       <div style="margin-top:8px"><input id="linkSearch" placeholder="${t('Search a note to link…')}" oninput="linkSuggest('${id}',this.value)" style="width:100%"><div id="linkSug" class="picker"></div></div>
     </div>
+    ${commentsBlock(n)}
     <div class="modal-actions">
       <button class="btn danger" onclick="delNote('${id}')">${t('Delete')}</button>
+      <button class="btn" onclick="sendPostToTag('${id}')" title="${t('Send this whole post to a character tag')}">➦ ${t('Send post to…')}</button>
       <span style="flex:1"></span>
       <button class="btn" onclick="closeModal()">${t('Cancel')}</button>
       <button class="btn primary" onclick="saveNote('${id}')">${t('Save')}</button>
     </div></div>`;
   document.body.appendChild(div);
 }
+/* ---- a note is a post: it can carry a thread of comments ----
+   Comments are saved the moment you add one, not on Save — a reply you typed
+   should not vanish because you closed the dialog with Cancel. */
+function commentsBlock(n){
+  const cs=n.comments||[];
+  return `<div class="comments">
+    <span class="flabel">${t('comments')}${cs.length?` (${cs.length})`:''}</span>
+    <div class="comment-list">${cs.map((c,i)=>`
+      <div class="comment">
+        <div class="comment-head">
+          ${editorPill({editedBy:c.by})}
+          <span class="comment-when">${fmtDate(c.at)}</span>
+          <span style="flex:1"></span>
+          <button class="btn ghost comment-act" onclick="sendCommentToTag('${n.id}',${i})" title="${t('Send this comment (with the post title) to a character tag')}">➦</button>
+          <button class="btn ghost comment-act" onclick="delComment('${n.id}',${i})" title="${t('remove')}">✕</button>
+        </div>
+        <div class="comment-text" dir="auto">${esc(c.text)}</div>
+      </div>`).join('')||`<span style="font-size:13px;color:var(--ink-faint)">${t('No comments yet.')}</span>`}
+    </div>
+    <div class="comment-add">
+      <textarea id="cmtText" dir="auto" placeholder="${t('Reply as {name}…').replace('{name}',currentUser())}"></textarea>
+      <button class="btn primary" onclick="addComment('${n.id}')">${t('Post comment')}</button>
+    </div>
+  </div>`;
+}
+function addComment(id){
+  const n=byId(id); if(!n) return;
+  const el=document.getElementById('cmtText');
+  const txt=(el&&el.value||'').trim();
+  if(!txt){ toast(t('Write something (or attach an image) first ✍️')); return; }
+  n.comments=n.comments||[];
+  n.comments.push({by:currentUser(),text:txt,at:Date.now()});
+  stamp(n); save(); closeModal(); openNote(id); toast(t('Comment added'));
+}
+function delComment(id,i){
+  const n=byId(id); if(!n||!n.comments) return;
+  n.comments.splice(i,1); stamp(n); save(); closeModal(); openNote(id);
+}
+// the first line of a note doubles as its title — a comment lifted out of a post
+// is meaningless without it, so it always travels along
+function postTitle(n){ return (n.text||'').split('\n')[0].trim().slice(0,120); }
+function characterTagNames(){ return allTagNames().filter(isCharacter); }
+function sendPostToTag(id){ routeToTagPicker(t('Send post to…'), tag=>{
+  const n=byId(id); if(!n) return;
+  if((n.tags||[]).some(x=>norm(x)===norm(tag))){ toast(t('Already there')); return; }
+  n.tags=parseTags([...(n.tags||[]),tag].join(', ')); stamp(n);
+  closeModal(); render(); toast(t('Sent to {name}').replace('{name}',tag));
+}); }
+function sendCommentToTag(id,i){ routeToTagPicker(t('Send comment to…'), tag=>{
+  const n=byId(id); if(!n||!n.comments||!n.comments[i]) return;
+  const c=n.comments[i];
+  state.notes.unshift({id:uid(),
+    text:c.text,
+    notes:t('From the post: “{title}”').replace('{title}',postTitle(n)),
+    kind:'idea',world:n.world||'',tags:[canonTag(tag)],refs:[],image:null,comments:[],
+    status:'inbox',author:c.by,editedBy:currentUser(),createdAt:Date.now(),updatedAt:Date.now()});
+  closeModal(); render(); toast(t('Sent to {name}').replace('{name}',tag));
+}); }
+function routeToTagPicker(title,onPick){
+  const names=characterTagNames();
+  ROUTE_PICK=onPick;
+  const div=document.createElement('div'); div.className='overlay';
+  div.onclick=e=>{ if(e.target===div) closeModal(); };
+  div.innerHTML=`<div class="modal"><h3>${esc(title)}</h3>
+    <p style="font-size:13.5px;color:var(--ink-dim);margin-bottom:10px">${t('Character tags only — the post becomes part of that character.')}</p>
+    <div class="picker">${names.map((x,i)=>`<div class="pick-row" dir="auto" onclick="routePick(${i})">${esc(x)}</div>`).join('')
+      ||`<div class="empty" style="padding:20px">${t('No character tags yet.')}</div>`}</div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal()">${t('Cancel')}</button></div>
+  </div>`;
+  document.body.appendChild(div);
+  ROUTE_NAMES=names;
+}
+let ROUTE_PICK=null, ROUTE_NAMES=[];
+function routePick(i){ const tag=ROUTE_NAMES[i]; closeModal(); if(ROUTE_PICK) ROUTE_PICK(tag); ROUTE_PICK=null; }
 function closeModal(){ document.querySelectorAll('.overlay').forEach(o=>o.remove()); }
 function modalImage(id,input){
   const f=input.files[0]; input.value='';
@@ -1574,6 +1771,7 @@ function removeImage(id){
 function saveNote(id){
   const n=byId(id); if(!n) return;
   n.text=document.getElementById('nText').value.trim();
+  const nb=document.getElementById('nNotes'); if(nb) n.notes=nb.value.trim();
   n.kind=document.getElementById('nKind').value;
   n.world=document.getElementById('nWorld').value.trim();
   n.status=document.getElementById('nStatus').value;
@@ -1798,7 +1996,7 @@ async function pushToServer(){
 }
 function mergeVaults(local,remote){
   const out=blank();
-  out.view=local.view; out.filters=local.filters; out.openSeq=local.openSeq; out.openTag=local.openTag; out.gtagQuery=local.gtagQuery;
+  out.view=local.view; out.filters=local.filters; out.openSeq=local.openSeq; out.openTag=local.openTag; out.gtagQuery=local.gtagQuery; out.viewMode=local.viewMode;
   out.deleted=Object.assign({},remote.deleted||{});
   Object.entries(local.deleted||{}).forEach(([k,t])=>{ if(!out.deleted[k]||t>out.deleted[k]) out.deleted[k]=t; });
   const wm=new Map();
@@ -1980,7 +2178,7 @@ async function cloudPush(){
   }
 }
 // which tab/filter you're looking at is yours alone — never sync it
-function stripUi(s){ const o=Object.assign({},s); delete o.view; delete o.openSeq; delete o.openTag; delete o.gtagQuery; delete o.selectedIds; delete o.filters; return o; }
+function stripUi(s){ const o=Object.assign({},s); delete o.view; delete o.openSeq; delete o.openTag; delete o.gtagQuery; delete o.selectedIds; delete o.viewMode; delete o.filters; return o; }
 function startCloudWatch(){
   setInterval(()=>{ if(document.visibilityState==='visible') cloudPull(true); },45000);
   window.addEventListener('focus',()=>cloudPull(true));

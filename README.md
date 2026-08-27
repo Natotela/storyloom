@@ -124,6 +124,21 @@ vault folder). Each file becomes one inbox note titled by its filename. It under
     to sweep up all of their notes at once — into one existing sequence), Move to Trash.
   Selection is per-device, forgotten on tab switch, never synced, and never triggers a
   save to GitHub by itself.
+- **Cards or list, per section** — every section (Ideas, Library, Sequences, Character
+  Tags, General Tags) has a ▦ / ☰ toggle in its header. Notes and sequences default to
+  cards, tag sections default to the list/tree; either can be switched. The choice is
+  remembered per section and per device, and is never written to the shared vault.
+- **A note is a post** — besides its text it carries a free-text **notes** field (context
+  for yourself, written under the spark line in Ideas) and a **comment thread**. Anyone
+  can reply as whoever is currently selected in the user switcher, so a note can turn into
+  a two-person conversation. Comments save immediately on posting rather than waiting for
+  Save, so a reply cannot be lost by closing the dialog. Cards show 💬 with a count, and 📝
+  when notes are attached.
+- **Routing to a character** — from an open post, **➦ Send post to…** adds a character tag
+  to the whole note, moving it into that character's private space. The ➦ on an individual
+  comment instead creates a *new* note in that character from just that comment, carrying
+  the original post's title as context so the fragment still makes sense, credited to
+  whoever wrote the comment. Both offer character tags only.
 - **Trash** — the 6th tab. Every delete, single or bulk, lands here first: notes,
   sequences, and tag pages alike, each showing what it was and when it was removed.
   Restore puts it back exactly where it lived (and safely overrides a stale tombstone
