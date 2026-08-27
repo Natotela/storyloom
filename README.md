@@ -151,6 +151,22 @@ actually typed (`dir="auto"`):
 
 This works regardless of which language the interface is set to — see below.
 
+## Who is working (IC / LIK)
+
+A **👤 IC / 👤 LIK** button in the header, next to the language toggle. Like the language
+and theme, the choice is per device and lives in its own localStorage key — it is never
+written into the vault, so the two of you can be signed in as different people on the same
+shared vault at the same time.
+
+What *does* travel is the stamp: anything created while a name is selected records that
+name as its `author` — notes captured in Ideas, notes written straight onto a tag page,
+markdown imports, new sequences, and new tag pages. Notes show it as a small pill next to
+their date. Nothing created before this existed has an author, and those simply show no
+pill rather than being guessed at.
+
+Switching names never rewrites history: the author is set once at creation and editing a
+note later does not change it.
+
 ## Interface language (English / עברית)
 
 The **א / A** button in the header switches the whole interface between English and
