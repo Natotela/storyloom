@@ -230,6 +230,9 @@
   .cap-notes{width:100%;min-height:46px;resize:vertical;background:var(--bg2);font-size:14px;margin-top:8px;
     border:1px dashed var(--line)}
   .cap-notes:focus{border-style:solid}
+  .quick-route{border-color:var(--accent2)!important;color:var(--accent2)}
+  .quick-route:hover{background:var(--panel2)}
+  .comment-act.quick-route{border:none!important}
   .comments{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
   .comment-list{display:flex;flex-direction:column;gap:8px;margin:8px 0 12px}
   .comment{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 12px}
@@ -334,7 +337,7 @@
 // Bumped by hand right before each commit — the one honest way to tell, after a
 // deploy and a hard refresh, that the page you're looking at is actually the new
 // one and not a cached copy. Shown in the header and logged on load.
-const BUILD='v19 · 2026-08-27';
+const BUILD='v20 · 2026-08-27';
 console.log('Storyloom build:', BUILD);
 /* ============ store ============ */
 const KEY='storyloom.v1';
@@ -737,7 +740,9 @@ const I18N={he:{
  "Send comment to…": "שליחת התגובה אל…",
  "From the post: “{title}”": "מתוך הפוסט: „{title}”",
  "Character tags only — the post becomes part of that character.": "תגיות דמויות בלבד — הפוסט הופך לחלק מאותה דמות.",
- "No character tags yet.": "אין עדיין תגיות של דמויות."
+ "No character tags yet.": "אין עדיין תגיות של דמויות.",
+ "Send this whole post to {name}": "שליחת הפוסט כולו אל {name}",
+ "Send this comment (with the post title) to {name}": "שליחת התגובה (עם כותרת הפוסט) אל {name}"
 }};
 /* ---- interface language ---------------------------------------------------
    Note *content* always decides its own direction via dir="auto" (so an English
@@ -1638,6 +1643,7 @@ function delTagPage(id){
 /* ---- note modal ---- */
 function openNote(id){
   const n=byId(id); if(!n) return;
+  closeModal();   // reopening after an in-dialog action must replace, never stack
   const links=linksOf(id);
   const div=document.createElement('div'); div.className='overlay'; div.id='noteModal';
   div.onclick=e=>{ if(e.target===div) closeModal(); };
@@ -1676,6 +1682,7 @@ function openNote(id){
     ${commentsBlock(n)}
     <div class="modal-actions">
       <button class="btn danger" onclick="delNote('${id}')">${t('Delete')}</button>
+      <button class="btn quick-route" onclick="quickSendPost('${id}')" title="${t('Send this whole post to {name}').replace('{name}',esc(quickTagName()))}">➦ ${esc(quickTagName())}</button>
       <button class="btn" onclick="sendPostToTag('${id}')" title="${t('Send this whole post to a character tag')}">➦ ${t('Send post to…')}</button>
       <span style="flex:1"></span>
       <button class="btn" onclick="closeModal()">${t('Cancel')}</button>
@@ -1696,7 +1703,8 @@ function commentsBlock(n){
           ${editorPill({editedBy:c.by})}
           <span class="comment-when">${fmtDate(c.at)}</span>
           <span style="flex:1"></span>
-          <button class="btn ghost comment-act" onclick="sendCommentToTag('${n.id}',${i})" title="${t('Send this comment (with the post title) to a character tag')}">➦</button>
+          <button class="btn ghost comment-act quick-route" onclick="quickSendComment('${n.id}',${i})" title="${t('Send this comment (with the post title) to {name}').replace('{name}',esc(quickTagName()))}">➦</button>
+          <button class="btn ghost comment-act" onclick="sendCommentToTag('${n.id}',${i})" title="${t('Send this comment (with the post title) to a character tag')}">⋯</button>
           <button class="btn ghost comment-act" onclick="delComment('${n.id}',${i})" title="${t('remove')}">✕</button>
         </div>
         <div class="comment-text" dir="auto">${esc(c.text)}</div>
@@ -1725,13 +1733,25 @@ function delComment(id,i){
 // is meaningless without it, so it always travels along
 function postTitle(n){ return (n.text||'').split('\n')[0].trim().slice(0,120); }
 function characterTagNames(){ return allTagNames().filter(isCharacter); }
-function sendPostToTag(id){ routeToTagPicker(t('Send post to…'), tag=>{
+/* The one-click destination. Named here so it is a single line to change, and
+   resolved through the existing tag list so it picks up whatever casing the tag
+   already has. If it does not exist yet the quick action creates it as a
+   character tag, matching what the picker offers. */
+const QUICK_TAG='ליידי עתך';
+function quickTagName(){ return allTagNames().find(x=>norm(x)===norm(QUICK_TAG))||QUICK_TAG; }
+function ensureQuickTag(){
+  const name=quickTagName();
+  if(!tagRec(name)){ const r=ensureTagRec(name); r.type='character'; }
+  return name;
+}
+// the two routing operations, shared by the quick buttons and the picker
+function applyPostToTag(id,tag){
   const n=byId(id); if(!n) return;
   if((n.tags||[]).some(x=>norm(x)===norm(tag))){ toast(t('Already there')); return; }
   n.tags=parseTags([...(n.tags||[]),tag].join(', ')); stamp(n);
   closeModal(); render(); toast(t('Sent to {name}').replace('{name}',tag));
-}); }
-function sendCommentToTag(id,i){ routeToTagPicker(t('Send comment to…'), tag=>{
+}
+function applyCommentToTag(id,i,tag){
   const n=byId(id); if(!n||!n.comments||!n.comments[i]) return;
   const c=n.comments[i];
   state.notes.unshift({id:uid(),
@@ -1740,7 +1760,11 @@ function sendCommentToTag(id,i){ routeToTagPicker(t('Send comment to…'), tag=>
     kind:'idea',world:n.world||'',tags:[canonTag(tag)],refs:[],image:null,comments:[],
     status:'inbox',author:c.by,editedBy:currentUser(),createdAt:Date.now(),updatedAt:Date.now()});
   closeModal(); render(); toast(t('Sent to {name}').replace('{name}',tag));
-}); }
+}
+function sendPostToTag(id){ routeToTagPicker(t('Send post to…'), tag=>applyPostToTag(id,tag)); }
+function sendCommentToTag(id,i){ routeToTagPicker(t('Send comment to…'), tag=>applyCommentToTag(id,i,tag)); }
+function quickSendPost(id){ applyPostToTag(id, ensureQuickTag()); }
+function quickSendComment(id,i){ applyCommentToTag(id,i, ensureQuickTag()); }
 function routeToTagPicker(title,onPick){
   const names=characterTagNames();
   ROUTE_PICK=onPick;
