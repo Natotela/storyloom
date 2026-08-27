@@ -230,6 +230,13 @@
   .cap-notes{width:100%;min-height:46px;resize:vertical;background:var(--bg2);font-size:14px;margin-top:8px;
     border:1px dashed var(--line)}
   .cap-notes:focus{border-style:solid}
+  .cast-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+  .cast-chip{display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1.5px solid var(--accent2);
+    border-radius:20px;padding:4px 6px 4px 13px;font-size:13.5px}
+  .cast-chip>span{cursor:pointer}
+  .cast-chip>span:hover{color:var(--accent3)}
+  .cast-chip button{color:var(--ink-faint);padding:0 4px;border-radius:50%}
+  .cast-chip button:hover{color:var(--danger)}
   #bellBtn{position:relative}
   #bellBtn.has-unread{color:var(--accent)}
   #bellBtn .count{background:var(--danger);color:#fff;margin-inline-start:4px}
@@ -342,7 +349,7 @@
 // Bumped by hand right before each commit — the one honest way to tell, after a
 // deploy and a hard refresh, that the page you're looking at is actually the new
 // one and not a cached copy. Shown in the header and logged on load.
-const BUILD='v21 · 2026-08-27';
+const BUILD='v22 · 2026-08-27';
 console.log('Storyloom build:', BUILD);
 /* ============ store ============ */
 const KEY='storyloom.v1';
@@ -357,7 +364,7 @@ function load(){
 }
 // tag pages were called Warps before they gained hierarchy and free text
 function migrate(v){ if(v && v.warps && !v.tags){ v.tags=v.warps; delete v.warps; } return v; }
-function blank(){ return {notes:[],sequences:[],links:[],tags:[],trash:[],deleted:{},seen:{},view:'inbox',openSeq:null,openTag:null,gtagQuery:'',viewMode:{},selectedIds:[],filters:{q:'',world:'',kind:'',tag:''}}; }
+function blank(){ return {notes:[],sequences:[],links:[],tags:[],trash:[],deleted:{},seen:{},view:'inbox',openSeq:null,openTag:null,gtagQuery:'',ctagQuery:'',viewMode:{},selectedIds:[],filters:{q:'',world:'',kind:'',tag:''}}; }
 // A deletion has to be a fact that travels, not just an absence — otherwise the other
 // device still has the item and the merge hands it straight back. tomb() records when
 // something died; the merge then drops it everywhere.
@@ -758,7 +765,14 @@ const I18N={he:{
  "Copy a direct link to this post": "העתקת קישור ישיר לפוסט",
  "Link copied": "הקישור הועתק",
  "Copy this link": "העתיקו את הקישור",
- "That note is no longer here.": "ההערה הזו כבר לא קיימת."
+ "That note is no longer here.": "ההערה הזו כבר לא קיימת.",
+ "Cast into sequence…": "שיבוץ לרצף…",
+ "Cast": "ליהוק",
+ "cast": "מלוהק",
+ "tag": "תגית",
+ "tags": "תגיות",
+ "No notes are needed — this records who is in the scene.": "לא נדרשות הערות — זה מתעד מי נמצא בסצנה.",
+ "{n} cast into the sequence": "{n} שובצו לרצף"
 }};
 /* ---- interface language ---------------------------------------------------
    Note *content* always decides its own direction via dir="auto" (so an English
@@ -1108,6 +1122,7 @@ function selectionBar(ids,mode){
     tags:`<button class="btn" onclick="bulkSetTagType('character')">${t('Mark as character')}</button>
       <button class="btn" onclick="bulkSetTagType('general')">${t('Mark as general')}</button>
       <button class="btn" onclick="bulkTagsToSequence()">⛓ ${t('Add notes to sequence…')}</button>
+      <button class="btn" onclick="bulkLinkCharsToSequence()">🎭 ${t('Cast into sequence…')}</button>
       <button class="btn danger" onclick="bulkDeleteTags()">🗑 ${t('Move to Trash')}</button>`,
     trash:`<button class="btn" onclick="bulkRestore()">↺ ${t('Restore')}</button>
       <button class="btn danger" onclick="bulkPurge()">${t('Delete forever')}</button>`
@@ -1198,6 +1213,43 @@ function notesForTags(names){
   names.forEach(name=>notesWithTag(name).forEach(n=>set.add(n)));
   return [...set];
 }
+/* Casting: attach characters to a sequence directly, as its cast list.
+   Separate from "add notes to sequence" on purpose — a character can belong to
+   a scene before anything has been written about them in it, and that intent
+   would otherwise be unrecordable. */
+function bulkLinkCharsToSequence(){
+  const names=selectedTagNames();
+  if(!names.length) return;
+  const div=document.createElement('div'); div.className='overlay';
+  div.onclick=e=>{ if(e.target===div) closeModal(); };
+  div.innerHTML=`<div class="modal"><h3>🎭 ${t('Cast into sequence…')}</h3>
+    <p style="font-size:13.5px;color:var(--ink-dim);margin-bottom:10px">${names.length} ${names.length===1?t('tag'):t('tags')} · ${t('No notes are needed — this records who is in the scene.')}</p>
+    <div class="picker">${state.sequences.map(s=>`<div class="pick-row" dir="auto" onclick="bulkLinkCharsConfirm('${s.id}')">${esc(s.title||t('Untitled'))} <span style="color:var(--ink-faint);font-size:12.5px">· ${(s.characters||[]).length} ${t('cast')}</span></div>`).join('')
+      || `<div class="empty" style="padding:20px">${t('No sequences yet — create one under Sequences first.')}</div>`}</div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal()">${t('Cancel')}</button></div>
+  </div>`;
+  document.body.appendChild(div);
+}
+function bulkLinkCharsConfirm(seqId){
+  const s=seqById(seqId); if(!s){ closeModal(); return; }
+  s.characters=s.characters||[];
+  let added=0;
+  selectedTagNames().forEach(name=>{
+    const c=canonTag(name);
+    if(!s.characters.some(x=>norm(x)===norm(c))){ s.characters.push(c); added++; }
+  });
+  stamp(s);
+  state.selectedIds=[];
+  closeModal(); render();
+  toast(added?t('{n} cast into the sequence').replace('{n}',added):t('Already there'));
+}
+function uncastFromSequence(seqId,tag){
+  const s=seqById(seqId); if(!s) return;
+  s.characters=(s.characters||[]).filter(x=>norm(x)!==norm(tag));
+  stamp(s); render();
+}
+// sequences this tag is cast into, whether or not any note connects them
+function seqsCasting(tag){ return state.sequences.filter(s=>(s.characters||[]).some(x=>norm(x)===norm(tag))); }
 function bulkTagsToSequence(){
   const names=selectedTagNames();
   const ns=notesForTags(names);
@@ -1362,6 +1414,13 @@ function viewSeqDetail(){
       </div>
     </div>
   </div>
+  ${(s.characters&&s.characters.length)?`<div class="section-h" style="margin-top:24px"><h2>🎭 ${t('Cast')}</h2>
+      <span style="color:var(--ink-faint);font-size:13px">${s.characters.length}</span></div>
+    <div class="cast-row">${s.characters.map(c=>`<span class="cast-chip" dir="auto">
+      <span onclick="goToTag(${JSON.stringify(c).replace(/"/g,'&quot;')})">${esc(c)}</span>
+      <button onclick="uncastFromSequence('${s.id}',${JSON.stringify(c).replace(/"/g,'&quot;')})" title="${t('remove')}">✕</button>
+    </span>`).join('')}</div>`:''}
+
   <div class="section-h"><h2>${t('Timeline')}</h2>
     <div style="display:flex;gap:8px">
       <button class="btn" onclick="openPicker('${s.id}')">${t('+ Add note as beat')}</button>
@@ -1438,15 +1497,26 @@ function openTag(id,fromView){ state.openTag=id; state.view=fromView||'tags'; re
 // that flag only decides isolation (below) and which tab a note's tag-pill jumps
 // to, not which tags are browsable here. The dot on each row shows the flag.
 function viewCharTagList(){
-  const roots=rootTags();
-  const pinned=allTagNames().filter(x=>{ const r=tagRec(x); return r&&r.starred; });
+  const q=norm(state.ctagQuery||'');
+  const all=allTagNames();
+  // While searching, show flat matches: a tree that hides non-matching parents
+  // would either drop matching children or show rows you did not search for.
+  const hits=q?all.filter(x=>norm(x).includes(q)):all;
+  const roots=q?[]:rootTags();
+  const pinned=q?[]:all.filter(x=>{ const r=tagRec(x); return r&&r.starred; });
   return `<div class="section-h"><h2>${t('Character Tags')}</h2>${viewToggle('tags','list')}
       <button class="btn primary" onclick="newTag('tags')">+ ${t('New tag')}</button></div>
     <p style="color:var(--ink-dim);font-size:14px;margin-bottom:18px;max-width:66ch">${t('Every tag has a page of its own — write on it, give it an image, pin links, and nest tags under a parent (sub-characters under a character). Mark a tag as a character on its own page to give it a private space: its notes stop appearing in Ideas, Library, and Sequences.')}</p>
     ${pinned.length?`<div class="legend" style="margin-bottom:16px">${pinned.map(p=>`<span class="lg lg-inbox" style="cursor:pointer" onclick="openTagStay(${JSON.stringify(p).replace(/"/g,'&quot;')})">★ ${esc(p)}</span>`).join('')}</div>`:''}
-    ${selectionBar(allTagNames(),'tags')}
-    ${roots.length?(viewMode('tags','list')==='grid'?`<div class="grid">${allTagNames().map(tagCard).join('')}</div>`:`<div class="tag-tree">${roots.map(x=>tagRow(x,0)).join('')}</div>`)
-      :`<div class="empty"><b>${t('No tags yet.')}</b><br>${t('Tag a note and it appears here.')}</div>`}`;
+    <input type="search" dir="auto" placeholder="${t('Search tags…')}" value="${esc(state.ctagQuery||'')}" oninput="setCtagQuery(this.value)" style="width:100%;margin-bottom:16px">
+    ${selectionBar(hits,'tags')}
+    ${q
+      ? (hits.length
+          ? (viewMode('tags','list')==='grid'?`<div class="grid">${hits.map(tagCard).join('')}</div>`:`<div class="tag-tree">${hits.map(x=>tagRowFlat(x)).join('')}</div>`)
+          : `<div class="empty">${t('Nothing matches the current filters.')}</div>`)
+      : (roots.length
+          ? (viewMode('tags','list')==='grid'?`<div class="grid">${all.map(tagCard).join('')}</div>`:`<div class="tag-tree">${roots.map(x=>tagRow(x,0)).join('')}</div>`)
+          : `<div class="empty"><b>${t('No tags yet.')}</b><br>${t('Tag a note and it appears here.')}</div>`)}`;
 }
 function viewGeneralTagList(){
   const q=norm(state.gtagQuery||'');
@@ -1461,6 +1531,7 @@ function viewGeneralTagList(){
       :(q?`<div class="empty">${t('Nothing matches the current filters.')}</div>`
          :`<div class="empty"><b>${t('No tags yet.')}</b><br>${t('Tag a note and it appears here.')}</div>`)}`;
 }
+function setCtagQuery(v){ state.ctagQuery=v; render(); const el=document.querySelector('#main input[type=search]'); if(el){ el.focus(); el.setSelectionRange(el.value.length,el.value.length); } }
 function setGtagQuery(v){ state.gtagQuery=v; render(); const el=document.querySelector('#main input[type=search]'); if(el){ el.focus(); el.setSelectionRange(el.value.length,el.value.length); } }
 function tagRow(tag,depth,seen){
   seen=seen||new Set();
@@ -1519,7 +1590,11 @@ function viewTagDetail(){
   const kids=childTags(r.tag);
   const deep=descendantTags(r.tag);
   const inherited=deep.flatMap(d=>notesWithTag(d)).filter((n,i,arr)=>arr.findIndex(x=>x.id===n.id)===i && !own.some(o=>o.id===n.id));
-  const seqs=state.sequences.filter(q=>q.beats.some(bt=>own.some(n=>n.id===bt.noteId)));
+  // a sequence counts as related either because a note of this tag is woven into
+  // it, or because the character was cast into it directly with no note at all
+  const viaNotes=state.sequences.filter(q=>q.beats.some(bt=>own.some(n=>n.id===bt.noteId)));
+  const cast=seqsCasting(r.tag);
+  const seqs=[...new Set([...cast,...viaNotes])];
   const noteRefs=own.flatMap(n=>(n.refs||[]).map(x=>({url:x,from:n})));
   // a tag cannot be nested under itself or under its own descendant
   const banned=new Set([norm(r.tag),...deep.map(norm)]);
@@ -1604,7 +1679,7 @@ function viewTagDetail(){
 
   ${seqs.length?`<div class="section-h" style="margin-top:34px"><h2>${t('Appears in these weaves')}</h2></div>
     <div class="links-list">${seqs.map(q=>`<div class="link-row">
-      <span class="lbl">⛓ ${t('sequence')}</span>
+      <span class="lbl">${cast.includes(q)?'🎭 '+t('cast'):'⛓ '+t('sequence')}</span>
       <span class="txt" dir="auto" onclick="openSeq('${q.id}')">${esc(q.title||t('Untitled'))}</span></div>`).join('')}</div>`:''}`;
 }
 function updTag(id,k,v){ const r=tagRecById(id); if(r){ r[k]=v.trim(); stamp(r); render(); } }
@@ -2119,7 +2194,7 @@ async function pushToServer(){
 }
 function mergeVaults(local,remote){
   const out=blank();
-  out.view=local.view; out.filters=local.filters; out.openSeq=local.openSeq; out.openTag=local.openTag; out.gtagQuery=local.gtagQuery; out.viewMode=local.viewMode;
+  out.view=local.view; out.filters=local.filters; out.openSeq=local.openSeq; out.openTag=local.openTag; out.gtagQuery=local.gtagQuery; out.ctagQuery=local.ctagQuery; out.viewMode=local.viewMode;
   out.deleted=Object.assign({},remote.deleted||{});
   Object.entries(local.deleted||{}).forEach(([k,t])=>{ if(!out.deleted[k]||t>out.deleted[k]) out.deleted[k]=t; });
   const wm=new Map();
@@ -2313,7 +2388,7 @@ async function cloudPush(){
   }
 }
 // which tab/filter you're looking at is yours alone — never sync it
-function stripUi(s){ const o=Object.assign({},s); delete o.view; delete o.openSeq; delete o.openTag; delete o.gtagQuery; delete o.selectedIds; delete o.viewMode; delete o.filters; return o; }
+function stripUi(s){ const o=Object.assign({},s); delete o.view; delete o.openSeq; delete o.openTag; delete o.gtagQuery; delete o.ctagQuery; delete o.selectedIds; delete o.viewMode; delete o.filters; return o; }
 function startCloudWatch(){
   setInterval(()=>{ if(document.visibilityState==='visible') cloudPull(true); },45000);
   window.addEventListener('focus',()=>cloudPull(true));

@@ -139,6 +139,15 @@ vault folder). Each file becomes one inbox note titled by its filename. It under
   comment instead creates a *new* note in that character from just that comment, carrying
   the original post's title as context so the fragment still makes sense, credited to
   whoever wrote the comment. Both offer character tags only.
+- **Casting characters into a sequence** — select characters in Character Tags and use
+  🎭 *Cast into sequence…* to attach them to an existing sequence directly. This needs no
+  notes at all: a character can belong to a scene before anything has been written about
+  them in it. The sequence page lists its cast (each chip links to the character, ✕ removes
+  it), and the character's page lists those sequences marked 🎭 *cast*, as against ⛓ for
+  sequences reached through an actual note.
+- **Search in Character Tags** — same box as General Tags. While a search is active the
+  results are shown flat rather than as a tree, so a matching child is never hidden behind
+  a parent that does not match.
 - **Notifications** — a 🔔 in the header with a count of comments the *other* person has
   written that you have not seen. Opening it lists each post with something new: who wrote
   it, when, and a preview; clicking a row jumps straight to that post and clears it. Your
